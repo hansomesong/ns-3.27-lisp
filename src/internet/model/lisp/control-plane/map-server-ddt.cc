@@ -40,9 +40,16 @@ namespace ns3
   TypeId
   MapServerDdt::GetTypeId (void)
   {
-    static TypeId tid =
-	TypeId ("ns3::MapServerDdt").SetParent<MapServer> ().SetGroupName (
-	    "Lisp").AddConstructor<MapServerDdt> ();
+    static TypeId tid =TypeId ("ns3::MapServerDdt")
+    		.SetParent<MapServer> ()
+				.SetGroupName ("Lisp")
+				.AddConstructor<MapServerDdt> ()
+				.AddAttribute (
+						"SearchTime",
+						"Time to search EID-RLOC mapping before forwarding received map request",
+						TimeValue (Seconds (1.0)),
+						MakeTimeAccessor (&MapServerDdt::m_searchTime), MakeTimeChecker ()
+				);
     return tid;
   }
 
@@ -321,7 +328,9 @@ namespace ns3
 						   m_peerPort, m_socket);
 		Ptr<Packet> reqPacket = Create<Packet> (buf,
 							packet->GetSize ());
-		Send (reqPacket);
+		Simulator::Schedule (m_searchTime, &MapServerDdt::Send, this, reqPacket);
+
+//		Send (reqPacket);
 	      }
 
 	  }

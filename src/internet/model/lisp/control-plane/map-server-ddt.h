@@ -27,6 +27,7 @@
 #include "ns3/map-request-msg.h"
 #include "ns3/map-register-msg.h"
 #include "ns3/map-notify-msg.h"
+#include "ns3/event-id.h"
 
 namespace ns3
 {
@@ -68,6 +69,9 @@ private:
 
   Ptr<MapTables> m_mapTablesv4;
   Ptr<MapTables> m_mapTablesv6;
+
+  Time m_searchTime;                        //!< Time consumed for EID-RLOC mapping search
+
 };
 
 

@@ -563,14 +563,18 @@ main (int argc, char *argv[])
 {
 	/**
 	 * ./waf --run "lisp_mobility_between_subnet --dhcp-collect=0.7 --wifi-beacon-interval=0.2"
+	 * ./waf --run "lisp_mobility_between_subnet --dhcp-collect=0.7 --wifi-beacon-interval=0.2 --map-search-time=0.4"
+	 *
 	 */
   LogComponentEnable ("LispMobilityBetweenNetwork", LOG_LEVEL_ALL);
   CommandLine cmd;
   float dhcp_collect = 1.0;
   float wifiBeaconInterval = 0.2;
+  float mappingSearchTime = 0.4; //unit second
   cmd.AddValue ("verbose", "Print trace information if true", g_verbose);
   cmd.AddValue ("dhcp-collect", "Time for which offer collection starts", dhcp_collect);
   cmd.AddValue ("wifi-beacon-interval", "Time for which offer collection starts", wifiBeaconInterval);
+  cmd.AddValue ("map-search-time", "Time consumed for EID-RLOC mapping search in map server", mappingSearchTime);
 
   cmd.Parse (argc, argv);
   g_verbose = true;
@@ -647,6 +651,8 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::Ipv4GlobalRouting::RandomEcmpRouting",
 		      BooleanValue (true));
   Config::SetDefault ("ns3::DhcpClient::Collect", TimeValue (Seconds (dhcp_collect)));
+  Config::SetDefault ("ns3::MapServerDdt::SearchTime", TimeValue (Seconds (mappingSearchTime)));
+
 //  Config::SetDefault ("ns3::ApWifiMac::BeaconInterval", TimeValue (Seconds (wifiBeaconInterval)));
 
   NS_LOG_INFO("Create nodes.");
@@ -737,7 +743,7 @@ main (int argc, char *argv[])
   wifiMac.SetType(
 		  "ns3::StaWifiMac",
 		  "Ssid", SsidValue(ssid), // need to tell STA the target SSID
-		  "ActiveProbing", BooleanValue(false) //make sure that STA does not perform active probing
+		  "ActiveProbing", BooleanValue(true) //make sure that STA does not perform active probing
   );
 
   //Once all station specific parameters are configured, create wifi devices of STA
