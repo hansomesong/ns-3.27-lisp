@@ -27,91 +27,93 @@
 
 #include <stdint.h>
 #include "ns3/application-container.h"
-#include "ns3/net-device-container.h"
+#include "ns3/node-container.h"
 #include "ns3/object-factory.h"
 #include "ns3/ipv4-address.h"
-#include "ns3/ipv4-interface-container.h"
 
 namespace ns3 {
 
 /**
  * \ingroup dhcp
  *
- * \class DhcpHelper
- * \brief The helper class used to configure and install DHCP applications on nodes
+ * \class DhcpClientHelper
+ * \brief The helper class used to configure and install the client application on nodes
  */
-class DhcpHelper
+class DhcpClientHelper
 {
 public:
-  DhcpHelper ();
+  /**
+   * \brief Constructor of client helper
+   * \param device The interface on which DHCP client has to be installed
+   */
+  DhcpClientHelper (uint32_t device);
 
   /**
-   * \brief Set DHCP client attributes
+   * \brief Function to set DHCP client attributes
    * \param name Name of the attribute
    * \param value Value to be set
    */
-  void SetClientAttribute (std::string name, const AttributeValue &value);
+  void SetAttribute (std::string name, const AttributeValue &value);
 
   /**
-   * \brief Set DHCP server attributes
-   * \param name Name of the attribute
-   * \param value Value to be set
-   */
-  void SetServerAttribute (std::string name, const AttributeValue &value);
-
-  /**
-   * \brief Install DHCP client of a nodes / NetDevice
-   * \param netDevice The NetDevice that the DHCP client will use
+   * \brief Function to install DHCP client of a node
+   * \param node The node on which DHCP client application has to be installed
    * \return The application container with DHCP client installed
    */
-  ApplicationContainer InstallDhcpClient (Ptr<NetDevice> netDevice) const;
-
-  /**
-   * \brief Install DHCP client of a set of nodes / NetDevices
-   * \param netDevices The NetDevices that the DHCP client will use
-   * \return The application container with DHCP client installed
-   */
-  ApplicationContainer InstallDhcpClient (NetDeviceContainer netDevices) const;
-
-  /**
-   * \brief Install DHCP server of a node / NetDevice
-   *
-   * Note: the server address must be coherent with the pool address, because
-   * DHCP relays are not yet supported.
-   *
-   * \param netDevice The NetDevice on which DHCP server application has to be installed
-   * \param serverAddr The Ipv4Address of the server
-   * \param poolAddr The Ipv4Address (network part) of the allocated pool
-   * \param poolMask The mask of the allocated pool
-   * \param minAddr The lower bound of the Ipv4Address pool
-   * \param maxAddr The upper bound of the Ipv4Address pool
-   * \param gateway The Ipv4Address of default gateway (optional)
-   * \return The application container with DHCP server installed
-   */
-  ApplicationContainer InstallDhcpServer (Ptr<NetDevice> netDevice, Ipv4Address serverAddr,
-                                          Ipv4Address poolAddr, Ipv4Mask poolMask,
-                                          Ipv4Address minAddr, Ipv4Address maxAddr,
-                                          Ipv4Address gateway = Ipv4Address ());
-  /**
-   * \brief Assign a fixed IP addresses to a net device.
-   * \param netDevice The NetDevice on which the address has to be installed
-   * \param addr The Ipv4Address
-   * \param mask The network mask
-   * \return the Ipv4 interface container
-   */
-  Ipv4InterfaceContainer InstallFixedAddress (Ptr<NetDevice> netDevice, Ipv4Address addr, Ipv4Mask mask);
+  ApplicationContainer Install (Ptr<Node> node) const;
 
 private:
   /**
    * \brief Function to install DHCP client on a node
-   * \param netDevice The NetDevice on which DHCP client application has to be installed
+   * \param node The node on which DHCP client application has to be installed
    * \return The pointer to the installed DHCP client
    */
-  Ptr<Application> InstallDhcpClientPriv (Ptr<NetDevice> netDevice) const;
-  ObjectFactory m_clientFactory;                 //!< DHCP client factory
-  ObjectFactory m_serverFactory;                 //!< DHCP server factory
-  std::list<Ipv4Address> m_fixedAddresses;       //!< list of fixed addresses already allocated.
-  std::list< std::pair <Ipv4Address, Ipv4Address> > m_addressPools; //!< list of address pools.
+  Ptr<Application> InstallPriv (Ptr<Node> node) const;
+  ObjectFactory m_factory;                 //!< The subset of ns3::object for setting attributes
+};
+
+/**
+ * \ingroup dhcp
+ *
+ * \class DhcpServerHelper
+ * \brief The helper class used to configure and install the server application on nodes
+ */
+class DhcpServerHelper
+{
+public:
+  /**
+   * \brief Constructor of server helper
+   * \param pool_addr The Ipv4Address of the allocated pool
+   * \param pool_mask The mask of the allocated pool
+   * \param serv_addr The Ipv4Address of the server
+   * \param min_addr The lower bound of the Ipv4Address pool
+   * \param max_addr The upper bound of the Ipv4Address pool
+   * \param gateway The Ipv4Address of default gateway
+   */
+  DhcpServerHelper (Ipv4Address pool_addr, Ipv4Mask pool_mask, Ipv4Address serv_addr, Ipv4Address min_addr, Ipv4Address max_addr, Ipv4Address gateway = Ipv4Address ());
+
+  /**
+   * \brief Function to set DHCP server attributes
+   * \param name Name of the attribute
+   * \param value Value to be set
+   */
+  void SetAttribute (std::string name, const AttributeValue &value);
+
+  /**
+   * \brief Function to install DHCP server on a node
+   * \param node The node on which DHCP server application has to be installed
+   * \return The application container with DHCP server installed
+   */
+  ApplicationContainer Install (Ptr<Node> node) const;
+
+private:
+  /**
+   * \brief Function to install DHCP server of a node
+   * \param node The node on which DHCP server application has to be installed
+   * \return The pointer to the installed DHCP server
+   */
+  Ptr<Application> InstallPriv (Ptr<Node> node) const;
+  ObjectFactory m_factory;             //!< The subset of ns3::object for setting attributes
 };
 
 } // namespace ns3

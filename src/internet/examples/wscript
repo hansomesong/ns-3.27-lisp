@@ -7,3 +7,29 @@ def build(bld):
     obj = bld.create_ns3_program('main-simple',
                                  ['network', 'internet', 'applications'])
     obj.source = 'main-simple.cc'
+
+    obj = bld.create_ns3_program('lisp_example_1',
+                                ['point-to-point', 'network', 'internet', 'applications', 'flow-monitor', 'netanim'])
+
+    obj.source = 'lisp/lisp_example_1.cc'
+
+
+    obj = bld.create_ns3_program('test_abilene',
+                                ['point-to-point', 'network', 'internet', 'applications', 'flow-monitor', 'netanim'])
+
+    obj.source = 'lisp/test_abilene.cc'
+    
+    obj = bld.create_ns3_program('lisp_mobility_within_subnet', ['point-to-point', 'network', 'internet', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim'])
+    obj.source = 'lisp/mobility_within_network/lisp_mobility_within_subnet.cc'
+    
+    obj = bld.create_ns3_program('lisp_mobility_between_subnet', ['point-to-point', 'network', 'internet', 'internet-apps', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim'])
+    obj.source = 'lisp/mobility_between_network/lisp_mobility_between_subnet.cc'
+    
+    obj = bld.create_ns3_program('wifi_2nodes_fixed', ['point-to-point', 'network', 'internet', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim'])
+    obj.source = 'lisp/wifi_2nodes_fixed.cc'
+    
+    obj = bld.create_ns3_program('wifi_multiple_aps', ['point-to-point', 'network', 'internet', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim'])
+    obj.source = 'lisp/wifi_multiple_aps.cc'
+    
+    
+    

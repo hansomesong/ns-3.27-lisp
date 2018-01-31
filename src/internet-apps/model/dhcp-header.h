@@ -99,7 +99,6 @@ public:
    */
   ~DhcpHeader ();
 
-  /// BOOTP options
   enum Options
   {
     OP_MASK = 1,        //!< BOOTP Option 1: Address Mask
@@ -113,7 +112,6 @@ public:
     OP_END = 255        //!< BOOTP Option 255: END
   };
 
-  /// DHCP messages
   enum Messages
   {
     DHCPDISCOVER = 0,     //!< Code for DHCP Discover
@@ -160,26 +158,13 @@ public:
   void SetTime ();
 
   /**
-   * \brief Set the Address of the device.
-   *
-   * Only the relevant bits are considered (i.e., not the type and length)
-   *
+   * \brief Set the Address of the device
    * \param addr Address of the device
    */
   void SetChaddr (Address addr);
 
   /**
-   * \brief Set the Address of the device
-   * \param addr Address of the device
-   * \param len Address length
-   */
-  void SetChaddr (uint8_t* addr, uint8_t len);
-
-  /**
-   * \brief Get the Address of the client.
-   *
-   * Note: the address is always 16-bytes long.
-   *
+   * \brief Get the Address of the client
    * \return Address of the client
    */
   Address GetChaddr (void);

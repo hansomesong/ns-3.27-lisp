@@ -42,6 +42,9 @@
 #include "ipv4-interface.h"
 #include "ipv4-raw-socket-impl.h"
 
+#include "ns3/simple-map-tables.h"		//to support LISP&LISP-MN
+#include "ns3/lisp-over-ipv4.h"				//to support LISP&LISP-MN
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("Ipv4L3Protocol");
@@ -552,6 +555,23 @@ Ipv4L3Protocol::Receive ( Ptr<NetDevice> device, Ptr<const Packet> p, uint16_t p
   NS_LOG_LOGIC ("Packet from " << from << " received on node " << 
                 m_node->GetId ());
 
+  //===================================Adaptation to support LISP==============================
+	/**
+	 * ATTENTION: It's important to save the input parameter device into
+	 * LispOverIpv4 object. In case of double encapsulation, LispInput will
+	 * find the inner is still a LISP packet. Thus, it need to call Ipv4L3Protocol::Receive()
+	 * to re-inject the inner IP packet on the device.
+	 * Here the device number  (or pointer) is that saved in LispOverIpv4 object.
+	 *
+	 * Qipeng do this. not Lionel.
+	 */
+	Ptr<LispOverIpv4> lisp = m_node->GetObject<LispOverIpv4> ();
+	if (lisp != 0)
+		{
+			// We save receive parameter in order to use them later in lispInput if needed
+			lisp->RecordReceiveParams (device, protocol, packetType);
+		}
+  //===================================End of Adaptation to support LISP=======================
 
   int32_t interface = GetInterfaceForDevice(device);
   NS_ASSERT_MSG (interface != -1, "Received a packet from an interface that is not known to IPv4");
@@ -742,7 +762,127 @@ Ipv4L3Protocol::Send (Ptr<Packet> packet,
     {
       tos = ipTosTag.GetTos ();
     }
+  //==================================Adaption to support LISP=================================
+	// before going further, check if packet must be encapsulated and
+	// encapsulate
+	Ptr<LispOverIpv4> lispOverIpv4;
+	lispOverIpv4 = m_node->GetObject<LispOverIpv4> ();
+	int nbEntriesDB = 0;
+	/**
+	 * Only and only if lispOverIpv4 object is present and not a DHCP request packet
+	 * we pass to lisp processing part.
+	 */
+	if (lispOverIpv4 and not destination.IsBroadcast ())
+		{
+			nbEntriesDB =
+					lispOverIpv4->GetMapTablesV4 ()->GetNMapEntriesLispDataBase ();
+		}
+	/**
+	 * It should be pointers to lispOverIpv4 and number of entries in
+	 * Lisp database both not 0. Otherwise DHCP does not work.
+	 * 1) if no mapTables entries check in Ipv4L3Protocol::Send() method,
+	 * program enters in the LISP-processing code, which leads to no layer 2
+	 * frame send out. => No DHCP request (0.0.0.0 -> 255.255.255.255)
+	 * 2) In Ipv4L3Protocol::IpForward() method, LispOverIpv4Impl::NeedEncapsulation
+	 * will be called, which causes segmentation fault
+	 */
+	// lisp procedure will executed.
+	if (lispOverIpv4 != 0 and nbEntriesDB != 0)
+		{
+			Ptr<MapEntry> srcMapEntry = 0;
+			Ptr<MapEntry> destMapEntry = 0;
+			int32_t interface = 0;
 
+			// here we build the inner header
+			Ipv4Header innerIpHeader = BuildHeader (source, destination, protocol,
+																							packet->GetSize (), ttl, tos,
+																							mayFragment);
+
+			Ptr<Ipv4Route> lispRoute;
+			// we get the mask thanks to the outgoing interface
+			if (route)
+				{
+					interface = GetInterfaceForDevice (route->GetOutputDevice ());
+					lispRoute = route;
+				}
+			else
+				{
+					Socket::SocketErrno errno_;
+					Ptr<NetDevice> oif (0); // unused for now
+					Ptr<Ipv4Route> newRoute;
+					if (m_routingProtocol != 0)
+						{
+							newRoute = m_routingProtocol->RouteOutput (packet,
+																													innerIpHeader, oif,
+																													errno_);
+						}
+					else
+						{
+							NS_LOG_ERROR("Ipv4L3Protocol::Send: m_routingProtocol == 0");
+						}
+					if (newRoute)
+						{
+							interface = GetInterfaceForDevice (
+									newRoute->GetOutputDevice ());
+							lispRoute = newRoute;
+						}
+				}
+
+			Ipv4InterfaceAddress ifAddr = GetAddress (interface, 0);
+			NS_LOG_DEBUG("We check if we need Encapsulation for " << destination);
+			/*
+			 * if the packet has been decapsulated in Receive,
+			 * OK as we will check if it needs encapsulation
+			 * before going further
+			 */
+			bool destIsRloc = lispOverIpv4->IsLocatorInList (
+					static_cast<Address> (destination));
+			bool srcIsRloc = lispOverIpv4->IsLocatorInList (
+					static_cast<Address> (source));
+			if (destIsRloc && srcIsRloc)
+				{
+					NS_LOG_DEBUG(
+							"Both dst and src are in RLOC list known by xTR. GOTO No Encapsulation.");
+					goto no_encap;
+				}
+
+			if (srcIsRloc)
+				{
+					Ptr<Locator> srcRloc = Create<Locator> (
+							static_cast<Address> (source));
+					srcMapEntry = Create<MapEntryImpl> (srcRloc);
+				}
+
+			if (destIsRloc)
+				{
+					Ptr<Locator> destRloc = Create<Locator> (
+							static_cast<Address> (destination));
+					destMapEntry = Create<MapEntryImpl> (destRloc);
+				}
+			LispOverIpv4::MapStatus isMapForEncap =
+					lispOverIpv4->IsMapForEncapsulation (innerIpHeader, srcMapEntry,
+																								destMapEntry,
+																								ifAddr.GetMask ());
+			if (isMapForEncap == LispOverIpv4::Mapping_Exist)
+				{
+					NS_LOG_DEBUG("Ready to Encapsulate");
+					lispOverIpv4->LispOutput (packet, innerIpHeader, srcMapEntry,
+																		destMapEntry, lispRoute);
+					return;
+				}
+			else if (isMapForEncap == LispOverIpv4::No_Need_Encap)
+				{
+					goto no_encap;
+				}
+			else
+				return; // if no mapping, cache miss or one negative map entry
+		}
+
+	no_encap:
+	/**
+	 * TODO Here we could make the encapsulation if needed when the packet comes from the upper layer
+	 */
+	//==========================================End of Adaptation=================================
   // Handle a few cases:
   // 1) packet is destined to limited broadcast address
   // 2) packet is destined to a subnet-directed broadcast address
@@ -1042,6 +1182,39 @@ Ipv4L3Protocol::IpForward (Ptr<Ipv4Route> rtentry, Ptr<const Packet> p, const Ip
       m_dropTrace (header, packet, DROP_TTL_EXPIRED, m_node->GetObject<Ipv4> (), interface);
       return;
     }
+
+	/**
+	 * Qipeng:
+	 * 2017-04-28: Add check for map tables. Otherwise program is possibe to crash
+	 * due to segmentation fault.
+	 * 2018-01-31: Copy this from ns-3.26 to ns-3.27
+	 */
+	Ptr<LispOverIpv4> lisp = m_node->GetObject<LispOverIpv4> ();
+	int nbEntriesDB = 0;
+	if (lisp)
+		{
+			NS_LOG_DEBUG("first check to enter in lisp code block passed!");
+			nbEntriesDB = lisp->GetMapTablesV4 ()->GetNMapEntriesLispDataBase ();
+			/**
+			 * Qipeng's comment: I observe that for the received DHCP offer message from
+			 * DHCP server. NeedEncapsulation check is true! This leads to the simulation
+			 * program crash, since without DHCP exchange, lisp database is still empty!!!
+			 * So, to support LISP-DHCP, we should modify in this file or modify the creation
+			 * of lisp Database?
+			 */
+			if (nbEntriesDB)
+				{
+					NS_LOG_DEBUG("Second check to enter in lisp code block passed!");
+					Ipv4InterfaceAddress ifAddr = GetAddress (interface, 0);
+					if (lisp->NeedEncapsulation (header, ifAddr.GetMask ()))
+						{
+							NS_LOG_DEBUG("OK Ready to encapsulation in FORWARD");
+							Send (packet, header.GetSource (), header.GetDestination (),
+										header.GetProtocol (), 0);
+							return;
+						}
+				}
+		}
   // in case the packet still has a priority tag attached, remove it
   SocketPriorityTag priorityTag;
   packet->RemovePacketTag (priorityTag);
@@ -1063,6 +1236,41 @@ Ipv4L3Protocol::LocalDeliver (Ptr<const Packet> packet, Ipv4Header const&ip, uin
   NS_LOG_FUNCTION (this << packet << &ip << iif);
   Ptr<Packet> p = packet->Copy (); // need to pass a non-const packet up
   Ipv4Header ipHeader = ip;
+	// ================================Adaption to support LISP===========================
+  NS_LOG_DEBUG("We are in local delivery on node " << m_node->GetId ());
+	/**
+	 * Qipeng: I think it is better to do a mapTable check here also
+	 */
+	Ptr<LispOverIpv4> lisp = m_node->GetObject<LispOverIpv4> ();
+	int nbEntriesDB = 0;
+	if (lisp)
+		{
+			nbEntriesDB = lisp->GetMapTablesV4 ()->GetNMapEntriesLispDataBase ();
+		}
+	if (lisp != 0 and nbEntriesDB != 0)
+		{
+			NS_LOG_DEBUG(
+					"Checking if we need decapsulation on node " << m_node->GetId ());
+			/**
+			 * At this point the outer header has been checked
+			 * now we can safely remove it if needed
+			 */
+			lisp = m_node->GetObject<LispOverIpv4> ();
+			if (lisp->NeedDecapsulation (p, ip))
+				{
+					// copy initial packet with outer and inner ip headers
+					Ptr<Packet> lispPacket = p->Copy ();
+					lisp->LispInput (lispPacket, ipHeader);
+					return;
+				}
+			else
+				{
+					NS_LOG_DEBUG(
+							"OK we did not need decapsulation on node " << m_node->GetId ());
+				}
+		}
+	NS_LOG_DEBUG("OK on node " << m_node->GetId ()<<"-> No decapsulation when local deliver");
+	// ================================Adaption to support LISP===========================
 
   if ( !ipHeader.IsLastFragment () || ipHeader.GetFragmentOffset () != 0 )
     {

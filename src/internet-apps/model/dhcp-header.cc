@@ -111,22 +111,13 @@ void DhcpHeader::SetTime ()
 
 void DhcpHeader::SetChaddr (Address addr)
 {
-  std::memset (m_chaddr, 0, 16);
-  NS_ASSERT_MSG (addr.GetLength () <= 16, "Address length too big");
-  addr.CopyTo (m_chaddr);
-}
-
-void DhcpHeader::SetChaddr (uint8_t* addr, uint8_t len)
-{
-  std::memset (m_chaddr, 0, 16);
-  NS_ASSERT_MSG (len <= 16, "Address length too big");
-  std::memcpy (m_chaddr, addr, len);
+  addr.CopyAllTo (m_chaddr, 16);
 }
 
 Address DhcpHeader::GetChaddr ()
 {
   Address addr;
-  addr.CopyFrom (m_chaddr, 16);
+  addr.CopyAllFrom (m_chaddr, 16);
   return addr;
 }
 
@@ -285,17 +276,17 @@ DhcpHeader::Serialize (Buffer::Iterator start) const
 {
   Buffer::Iterator i = start;
   i.WriteU8 (m_bootp);
-  i.WriteU8 (m_hType);
-  i.WriteU8 (m_hLen);
-  i.WriteU8 (m_hops);
-  i.WriteU32 (m_xid);
-  i.WriteHtonU16 (m_secs);
+  i.WriteU8 ( m_hType);
+  i.WriteU8 ( m_hLen);
+  i.WriteU8 ( m_hops);
+  i.WriteU32 ( m_xid);
+  i.WriteHtonU16 ( m_secs);
   i.WriteU16 ( m_flags);
   WriteTo (i, m_ciAddr);
   WriteTo (i, m_yiAddr);
   WriteTo (i, m_siAddr);
   WriteTo (i, m_giAddr);
-  i.Write (m_chaddr, 16);
+  i.Write (m_chaddr,16);
   i.Write (m_sname,64);
   i.Write (m_file,128);
   i.Write (m_magic_cookie,4);
@@ -367,13 +358,13 @@ uint32_t DhcpHeader::Deserialize (Buffer::Iterator start)
   m_secs = i.ReadNtohU16 ();
   m_flags = i.ReadU16 ();
   ReadFrom (i, m_ciAddr);
-  ReadFrom (i, m_yiAddr);
-  ReadFrom (i, m_siAddr);
-  ReadFrom (i, m_giAddr);
+  ReadFrom (i,m_yiAddr);
+  ReadFrom (i,m_siAddr);
+  ReadFrom (i,m_giAddr);
   i.Read (m_chaddr, 16);
   i.Read (m_sname, 64);
-  i.Read (m_file, 128);
-  i.Read (m_magic_cookie, 4);
+  i.Read (m_file,128);
+  i.Read (m_magic_cookie,4);
   if ( m_magic_cookie[0] != 99 || m_magic_cookie[1] != 130 || m_magic_cookie[2] != 83 || m_magic_cookie[3] != 99)
     {
       NS_LOG_WARN ("Malformed Packet");

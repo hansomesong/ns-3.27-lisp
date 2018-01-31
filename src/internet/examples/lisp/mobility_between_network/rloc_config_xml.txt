@@ -1,0 +1,50 @@
+<locators>
+<locator>
+<if-address-v4>	10.1.2.1	</if-address-v4>
+<entry>
+<eid-v4>	10.1.1.0	255.255.255.0	0	</eid-v4>
+<rloc-v4>	10.1.2.1	10	30	1	</rloc-v4>
+</entry>
+<entry>
+<eid-v4>	10.1.2.0	255.255.255.0	0	</eid-v4>
+<rloc-v4>	10.1.2.1	10	30	1	</rloc-v4>
+</entry>
+</locator>
+<locator>
+<if-address-v4>	10.1.5.2	</if-address-v4>
+<entry>
+<eid-v4>	10.3.3.0	255.255.255.0	0	</eid-v4>
+<rloc-v4>	10.1.5.2	100	52	1	</rloc-v4>
+</entry>
+<entry>
+<eid-v4>	10.1.5.0	255.255.255.0	0	</eid-v4>
+<rloc-v4>	10.1.5.2	100	52	1	</rloc-v4>
+</entry>
+</locator>
+<locator>
+<if-address-v4>	10.1.4.2	</if-address-v4>
+<entry>
+<eid-v4>	10.1.6.0	255.255.255.0	0	</eid-v4>
+<rloc-v4>	10.1.4.2	100	52	1	</rloc-v4>
+</entry>
+</locator>
+<locator>
+<if-address-v4>	10.1.6.2	</if-address-v4>
+<entry>
+<eid-v4>	10.1.6.0	255.255.255.0	0	</eid-v4>
+<rloc-v4>	10.1.6.2	100	52	1	</rloc-v4>
+</entry>
+</entry>
+</locator>
+<locator>
+<if-address-v4>	10.1.3.1	</if-address-v4>
+<entry>
+<eid-v4>	10.1.7.0	255.255.255.0	0	</eid-v4>
+<rloc-v4>	10.1.3.1	100	52	1	</rloc-v4>
+</entry>
+<entry>
+<eid-v4>	10.1.3.0	255.255.255.0	0	</eid-v4>
+<rloc-v4>	10.1.3.1	10	30	1	</rloc-v4>
+</entry>
+</locator>
+</locators>
