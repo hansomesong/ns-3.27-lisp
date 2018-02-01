@@ -19,17 +19,47 @@
  * Authors: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  *          Mirko Banchi <mk.banchi@gmail.com>
  */
-
 #ifndef STA_WIFI_MAC_H
 #define STA_WIFI_MAC_H
 
 #include "regular-wifi-mac.h"
+#include "ns3/event-id.h"
+#include "ns3/packet.h"
+#include "ns3/traced-callback.h"
+#include "ns3/traced-value.h"
 #include "supported-rates.h"
+#include "amsdu-subframe-header.h"
 #include "capability-information.h"
+#include "mgt-headers.h"
+
+//#include "ht-operations.h"
+
+
+
 
 namespace ns3  {
 
-class MgtAddBaRequestHeader;
+/**
+ * \ingroup wifi
+ *
+ * Struct to hold information regarding beacons observed
+ */
+struct BeaconInfo
+{
+  void Clear ()
+    {
+      m_channelNumber = 0;
+      m_bssid = Mac48Address ();
+      m_capabilities = CapabilityInformation ();
+      m_snr = 0;
+      m_probeResp = MgtProbeResponseHeader ();
+    };
+  uint32_t m_channelNumber;
+  Mac48Address m_bssid;
+  CapabilityInformation m_capabilities;
+  double m_snr;
+  MgtProbeResponseHeader m_probeResp;
+};
 
 /**
  * \ingroup wifi
@@ -39,10 +69,6 @@ class MgtAddBaRequestHeader;
 class StaWifiMac : public RegularWifiMac
 {
 public:
-  /**
-   * \brief Get the type ID.
-   * \return the object TypeId
-   */
   static TypeId GetTypeId (void);
 
   StaWifiMac ();
@@ -56,7 +82,7 @@ public:
    * dequeued as soon as the channel access function determines that
    * access is granted to this MAC.
    */
-  void Enqueue (Ptr<const Packet> packet, Mac48Address to);
+  virtual void Enqueue (Ptr<const Packet> packet, Mac48Address to);
 
   /**
    * \param missed the number of beacons which must be missed
@@ -93,7 +119,9 @@ private:
     ASSOCIATED,
     WAIT_PROBE_RESP,
     WAIT_ASSOC_RESP,
-    BEACON_MISSED,
+    WAIT_BEACON,
+    UNASSOCIATED,
+    SCANNING,
     REFUSED
   };
 
@@ -110,7 +138,7 @@ private:
    */
   bool GetActiveProbing (void) const;
 
-  void Receive (Ptr<Packet> packet, const WifiMacHeader *hdr);
+  virtual void Receive (Ptr<Packet> packet, const WifiMacHeader *hdr);
 
   /**
    * Forward a probe request packet to the DCF. The standard is not clear on the correct
@@ -171,36 +199,57 @@ private:
    *
    * \param value the new state
    */
-  void SetState (MacState value);
-  /**
-   * Set the EDCA parameters.
-   *
-   * \param ac the access class
-   * \param cwMin the minimum contention window size
-   * \param cwMax the maximum contention window size
-   * \param aifsn the number of slots that make up an AIFS
-   * \param txopLimit the TXOP limit
-   */
-  void SetEdcaParameters (AcIndex ac, uint8_t cwMin, uint8_t cwMax, uint8_t aifsn, Time txopLimit);
+  void SetState (enum MacState value);
   /**
    * Return the Capability information of the current STA.
    *
    * \return the Capability information that we support
    */
   CapabilityInformation GetCapabilities (void) const;
+  /**
+   * This method is called after waiting in passive mode for beacons to
+   * arrive.  If no good beacons, restart scanning; otherwise, send an
+   * Association request to the highest quality beacon received and move
+   * to WAIT_ASSOC_RESP..
+   */
+  void WaitBeaconTimeout (void);
 
-  MacState m_state;            ///< MAC state
-  Time m_probeRequestTimeout;  ///< probe request timeout
-  Time m_assocRequestTimeout;  ///< assoc request timeout
-  EventId m_probeRequestEvent; ///< probe request event
-  EventId m_assocRequestEvent; ///< assoc request event
-  EventId m_beaconWatchdog;    ///< beacon watchdog
-  Time m_beaconWatchdogEnd;    ///< beacon watchdog end
-  uint32_t m_maxMissedBeacons; ///< maximum missed beacons
-  bool m_activeProbing;        ///< active probing
+  /**
+   * Start the scanning process to find the strongest beacon
+   */
+  void StartScanning (void);
+    /**
+   * (edited by manish)To check the waiting time (MaxTime Or MinTime) on the channel during Active Probing
+   */
+  void MinScanningTimeout (void);
+  /**
+   * Edited by Manish old ScanningTimeout is now channel scanning timeout
+   * Continue scanning process or terminate if no further channels to scan
+   */
+  void ChannelScanningTimeout (void);
 
-  TracedCallback<Mac48Address> m_assocLogger;   ///< assoc logger
-  TracedCallback<Mac48Address> m_deAssocLogger; ///< deassoc logger
+  virtual void DoInitialize (void);
+
+  enum MacState m_state;
+  Time m_probeRequestTimeout;
+  Time m_assocRequestTimeout;
+  Time m_scanningTimeout;
+  Time m_minChannelTimeout;// edited by manish used when scanning
+  Time m_maxChannelTimeout;// edited by manish used when scanning
+  EventId m_probeRequestEvent;
+  EventId m_assocRequestEvent;
+  EventId m_beaconWatchdog;
+  EventId m_waitBeaconEvent;
+  Time m_beaconWatchdogEnd;
+  uint32_t m_maxMissedBeacons;
+  bool m_activeProbing;
+  bool activityDetected ;// edited by manish used when scanning
+  std::vector<uint16_t> m_candidateChannels; /// used when scanning
+  BeaconInfo m_bestBeaconObserved; /// used when scanning
+
+  TracedCallback<Mac48Address> m_assocLogger;
+  TracedCallback<Mac48Address> m_deAssocLogger;
+  TracedValue<Time> m_beaconArrival;  /// Time in queue
 };
 
 } //namespace ns3

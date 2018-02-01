@@ -1649,6 +1649,12 @@ public:
   double GetPowerDbm (uint8_t power) const;
 
 
+
+
+  // Qipeng: To support wifi roaming
+  std::vector<uint16_t> GetOperationalChannelList () const;
+
+
 protected:
   // Inherited
   virtual void DoInitialize (void);
@@ -1694,6 +1700,8 @@ protected:
 
   EventId m_endRxEvent;                //!< the end reeive event
   EventId m_endPlcpRxEvent;            //!< the end PLCP receive event
+
+  std::vector<uint16_t> m_operationalChannelList;
 
 private:
   /**

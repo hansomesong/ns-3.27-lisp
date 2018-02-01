@@ -3740,6 +3740,23 @@ WifiPhy::AssignStreams (int64_t stream)
   return 1;
 }
 
+std::vector<uint16_t>
+WifiPhy::GetOperationalChannelList () const
+{
+  std::vector<uint16_t> channelList;
+  channelList.push_back (m_channelNumber);
+  for (std::vector<uint16_t>::size_type i = 0; i != m_operationalChannelList.size (); i++)
+    {
+      if (m_operationalChannelList[i] != m_channelNumber)
+        {
+          //edited by Manish Puraswani ver 1.0 as the original one was not updating channel list
+		  //channelList.push_back (m_channelNumber); (original code)
+          channelList.push_back (m_operationalChannelList[i]);
+		}
+    }
+  return channelList;
+}
+
 std::ostream& operator<< (std::ostream& os, WifiPhy::State state)
 {
   switch (state)
