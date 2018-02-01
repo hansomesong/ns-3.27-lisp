@@ -132,6 +132,8 @@ public:
 
   Address GetLocalAddress (Address address);
 
+	Ptr<EndpointId> GetLispMnEid();
+
 private:
 
   virtual void DoDispose (void);

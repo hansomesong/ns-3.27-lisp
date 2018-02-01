@@ -45,6 +45,9 @@
 #include "ns3/ipv4-route.h"
 #include "ns3/ipv6-route.h"
 #include "ns3/endpoint-id.h"
+#include "ns3/virtual-net-device.h"
+#include "ns3/net-device.h"
+
 
 namespace ns3 {
 
@@ -456,11 +459,11 @@ void LispEtrItrApplication::SendSmrMsg() {
 	std::list<Ptr<MapEntry> > mapEntries;
 	m_mapTablesV4->GetMapEntryList(MapTables::IN_CACHE, mapEntries);
 	m_mapTablesV6->GetMapEntryList(MapTables::IN_CACHE, mapEntries);
-	Ptr<EndpointId> tmpEid;
+//	Ptr<EndpointId> eid = GetLispMn;
 	Address dstRlocAddr;
 	for (std::list<Ptr<MapEntry> >::const_iterator it = mapEntries.begin();
 			it != mapEntries.end(); ++it) {
-		tmpEid = (*it)->GetEidPrefix();
+//		tmpEid = (*it)->GetEidPrefix();
 		/**
 		 * Send map request directly to the remote contacted xTR.
 		 * Since 1) the RLOC address (maybe more than one, we choose the first valid one) is alreay in cache
@@ -470,7 +473,7 @@ void LispEtrItrApplication::SendSmrMsg() {
 		dstRlocAddr =
 				(*it)->GetLocators()->SelectFirsValidRloc()->GetRlocAddress();
 		Ptr<MapRequestMsg> mapReqMsg =
-				LispEtrItrApplication::GenerateMapRequest(tmpEid);
+				LispEtrItrApplication::GenerateMapRequest(GetLispMnEid ());
 		//IMPORTANT: set SMR bit!!!
 		mapReqMsg->SetS(1);
 		uint8_t bufMapReq[64];
@@ -802,41 +805,46 @@ Ptr<MapReplyMsg> LispEtrItrApplication::GenerateMapReply4ChangedMapping(
 	return mapReply;
 }
 
-Ptr<MapRequestMsg> LispEtrItrApplication::GenerateMapRequest(
-		Ptr<EndpointId> eid) {
-	Ptr<UniformRandomVariable> uv = CreateObject<UniformRandomVariable>();
-	SeedManager::SetSeed(++m_seed % ULONG_MAX);
-	// Build map request message, application layer meesage
-	Ptr<MapRequestMsg> mapReqMsg = Create<MapRequestMsg>();
-	Address itrAddress = GetLocalAddress(
-			m_mapResolverRlocs.front()->GetRlocAddress());
-	if (Ipv4Address::IsMatchingType(itrAddress)) {
-		NS_LOG_DEBUG(
-				"Lisp data plan cannot find mapping for " << eid->Print () << " on cache database of " << Ipv4Address::ConvertFrom (itrAddress));
-		mapReqMsg->SetItrRlocAddrIp(itrAddress);
-	} else {
-		mapReqMsg->SetItrRlocAddrIpv6(itrAddress);
+	Ptr<MapRequestMsg>
+	LispEtrItrApplication::GenerateMapRequest (Ptr<EndpointId> eid)
+	{
+		NS_LOG_FUNCTION(this<<eid);
+		Ptr<UniformRandomVariable> uv = CreateObject<UniformRandomVariable> ();
+		SeedManager::SetSeed (++m_seed % ULONG_MAX);
+		// Build map request message, application layer meesage
+		Ptr<MapRequestMsg> mapReqMsg = Create<MapRequestMsg> ();
+		NS_LOG_DEBUG("Create an empty map request message...");
+		Address itrAddress = GetLocalAddress (m_mapResolverRlocs.front ()->GetRlocAddress ());
+		if (Ipv4Address::IsMatchingType (itrAddress))
+			{
+				NS_LOG_DEBUG(
+						"Lisp data plan cannot find mapping or need update mapping for " << eid->Print () << " on cache database of " << Ipv4Address::ConvertFrom (itrAddress));
+				mapReqMsg->SetItrRlocAddrIp (itrAddress);
+			}
+		else
+			{
+				mapReqMsg->SetItrRlocAddrIpv6 (itrAddress);
+			}
+		mapReqMsg->SetIrc (0);
+		mapReqMsg->SetNonce (uv->GetInteger (0, UINT_MAX));
+		Address eidAddress = eid->GetEidAddress ();
+		uint8_t maskLength = 0;
+		if (Ipv4Address::IsMatchingType (eidAddress))
+			maskLength = 32;
+		else if (Ipv6Address::IsMatchingType (eidAddress))
+			maskLength = 128;
+		/**
+		 * why Lionel set source EID address as an any Ipv4 address?
+		 * Now I know, becase msg object just contains the dest EID (no source EID)!
+		 * It is difficult to know which one is the source EID
+		 */
+		mapReqMsg->SetSourceEidAddr (static_cast<Address> (Ipv4Address ()));
+		mapReqMsg->SetSourceEidAddr (static_cast<Address> (Ipv4Address ()));
+		mapReqMsg->SetSourceEidAfi (LispControlMsg::IP);
+		mapReqMsg->SetMapRequestRecord (
+				Create<MapRequestRecord> (eidAddress, maskLength));
+		return mapReqMsg;
 	}
-	mapReqMsg->SetIrc(0);
-	mapReqMsg->SetNonce(uv->GetInteger(0, UINT_MAX));
-	Address eidAddress = eid->GetEidAddress();
-	uint8_t maskLength = 0;
-	if (Ipv4Address::IsMatchingType(eidAddress))
-		maskLength = 32;
-	else if (Ipv6Address::IsMatchingType(eidAddress))
-		maskLength = 128;
-	/**
-	 * why Lionel set source EID address as an any Ipv4 address?
-	 * Now I know, becase msg object just contains the dest EID (no source EID)!
-	 * It is difficult to know which one is the source EID
-	 */
-	mapReqMsg->SetSourceEidAddr(static_cast<Address>(Ipv4Address()));
-	mapReqMsg->SetSourceEidAddr(static_cast<Address>(Ipv4Address()));
-	mapReqMsg->SetSourceEidAfi(LispControlMsg::IP);
-	mapReqMsg->SetMapRequestRecord(
-			Create<MapRequestRecord>(eidAddress, maskLength));
-	return mapReqMsg;
-}
 
 void LispEtrItrApplication::Send(Ptr<Packet> packet) {
 	NS_LOG_FUNCTION(this);
@@ -967,8 +975,30 @@ void LispEtrItrApplication::DeleteFromMapReqList(Ptr<EndpointId> eid) {
 
 }
 //TODO: Qipeng: I thinks this method is not useful...
-void LispEtrItrApplication::HandleRead(Ptr<Socket> socket) {
+	void
+	LispEtrItrApplication::HandleRead (Ptr<Socket> socket)
+	{
 
-}
+	}
+
+	Ptr<EndpointId>
+	LispEtrItrApplication::GetLispMnEid ()
+	{
+		Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
+		uint32_t i;
+		for (i=0; i<GetNode()->GetNDevices();i++)
+			{
+				Ptr<NetDevice> dev = GetNode()->GetDevice(i);
+				if (dev->GetInstanceTypeId().GetName() == "ns3::VirtualNetDevice")
+					{
+						Ipv4Address eidAddress = ipv4->GetAddress (i, 0).GetLocal ();
+						Ptr<EndpointId> eid = Create<EndpointId> (eidAddress, Ipv4Mask ("/32"));
+						NS_LOG_DEBUG("The retrieved EID of LISP-MN:"<< eid->Print());
+						return eid;
+					}
+			}
+		// Other return 0.0.0.0/0
+		return Create<EndpointId> (Ipv4Address::GetAny(), Ipv4Mask ("/0"));
+	}
 
 } /* namespace ns3 */

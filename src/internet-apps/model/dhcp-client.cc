@@ -815,27 +815,27 @@ namespace ns3
     return ifTunIndex;
   }
 
-  Ptr<EndpointId>
-  DhcpClient::GetEid ()
-  {
-    NS_LOG_FUNCTION(this);
-    Ptr<EndpointId> eid;
-    uint32_t ifTunIndex = DhcpClient::GetIfTunIndex ();
-    Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
-    if (ifTunIndex)
-      {
-	Ipv4Address eidAddress = ipv4->GetAddress (ifTunIndex, 0).GetLocal ();
+	Ptr<EndpointId>
+	DhcpClient::GetEid ()
+	{
+		NS_LOG_FUNCTION(this);
+		Ptr<EndpointId> eid;
+		uint32_t ifTunIndex = DhcpClient::GetIfTunIndex ();
+		Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
+		if (ifTunIndex)
+			{
+				Ipv4Address eidAddress = ipv4->GetAddress (ifTunIndex, 0).GetLocal ();
 //      Ipv4Mask eidMask = ipv4->GetAddress (ifTunIndex, 0).GetMask ();
-	// LISP-MN, as a single machine, we use "/32" as EID mask
-	eid = Create<EndpointId> (eidAddress, Ipv4Mask ("/32"));
-	NS_LOG_DEBUG("The retrieved EID:"<< eid->Print());
-      }
-    /**
-     * TODO: Maybe we should consider the case where TUN net device is installed.
-     * But, no @IP is assigned!
-     */
-    return eid;
-  }
+				// LISP-MN, as a single machine, we use "/32" as EID mask
+				eid = Create<EndpointId> (eidAddress, Ipv4Mask ("/32"));
+				NS_LOG_DEBUG("The retrieved EID:"<< eid->Print());
+			}
+		/**
+		 * TODO: Maybe we should consider the case where TUN net device is installed.
+		 * But, no @IP is assigned!
+		 */
+		return eid;
+	}
 
   void
   DhcpClient::LispDataBaseManipulation (Ptr<EndpointId> eid)

@@ -22,7 +22,10 @@ def build(bld):
     obj = bld.create_ns3_program('lisp_mobility_within_subnet', ['point-to-point', 'network', 'internet', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim'])
     obj.source = 'lisp/mobility_within_network/lisp_mobility_within_subnet.cc'
     
-    obj = bld.create_ns3_program('lisp_mobility_between_subnet', ['point-to-point', 'network', 'internet', 'internet-apps', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim'])
+    obj = bld.create_ns3_program(
+    	'lisp_mobility_between_subnet',
+    	 ['point-to-point', 'network', 'internet', 'internet-apps', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim', 'virtual-net-device']
+    )
     obj.source = 'lisp/mobility_between_network/lisp_mobility_between_subnet.cc'
     
     obj = bld.create_ns3_program('wifi_2nodes_fixed', ['point-to-point', 'network', 'internet', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim'])

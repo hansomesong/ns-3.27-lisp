@@ -608,8 +608,8 @@ main (int argc, char *argv[])
 //      LogComponentEnable ("LispOverIpv4Impl", LOG_LEVEL_ALL);
 //      LogComponentEnable ("LispOverIpv4Impl", LOG_PREFIX_ALL);
       //For LispEtrItrApplication
-//      LogComponentEnable ("LispEtrItrApplication", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispEtrItrApplication", LOG_PREFIX_ALL);
+      LogComponentEnable ("LispEtrItrApplication", LOG_LEVEL_ALL);
+      LogComponentEnable ("LispEtrItrApplication", LOG_PREFIX_ALL);
 //      LogComponentEnable ("LispEtrItrAppHelper", LOG_LEVEL_ALL);
 //      LogComponentEnable ("LispEtrItrAppHelper", LOG_PREFIX_ALL);
 
@@ -774,6 +774,7 @@ main (int argc, char *argv[])
    * Set TUN/TAP device for LISP-MN node
    * A question: for tap, we need to care about Ethernet header or not?
    */
+  Address lispMnEidAddr = Ipv4Address ("172.16.0.1");
   Ptr<VirtualNetDevice> m_n0Tap = CreateObject<VirtualNetDevice> ();
   m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
   c.Get (0)->AddDevice (m_n0Tap);
@@ -781,10 +782,12 @@ main (int argc, char *argv[])
   uint32_t ifIndexTap = ipv4Tun->AddInterface (m_n0Tap);
   ipv4Tun->AddAddress (
       ifIndexTap,
-      Ipv4InterfaceAddress (Ipv4Address ("172.16.0.1"),
-			    Ipv4Mask ("255.255.255.0")));
+      Ipv4InterfaceAddress (Ipv4Address::ConvertFrom(lispMnEidAddr),
+			    Ipv4Mask ("255.255.255.255")));
   ipv4Tun->SetForwarding (ifIndexTap, true);
   ipv4Tun->SetUp (ifIndexTap);
+
+
   /**
    * It is obligatory to set TransmitCallBack for virtual-net-device.
    * Otherwise when transmitting packet, virtual-net-device does not know what to do,
@@ -911,6 +914,7 @@ main (int argc, char *argv[])
   InstallMapResolverApplication (c.Get (6), msAddr, Seconds (0.0), END_T);
   // Install lisp Mapping server at node 7
   InstallMapServerApplication (c.Get (7), Seconds (0.0), END_T);
+
 
   AsciiTraceHelper ascii;
   p2p.EnableAsciiAll (
