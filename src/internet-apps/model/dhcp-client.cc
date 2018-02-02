@@ -213,7 +213,7 @@ namespace ns3
     Address from;
     while ((packet = lispMappingSocket->RecvFrom (from)))
       {
-	NS_LOG_DEBUG("Receive sth from lisp. Now noting to do...");
+	NS_LOG_DEBUG("Receive messages from lisp. They are dedicated to xTR apps. DHCP has nothing to do.");
       }
   }
 

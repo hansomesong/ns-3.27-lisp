@@ -306,13 +306,26 @@ void LispEtrItrApplication::HandleReadControlMsg(Ptr<Socket> socket) {
 						"Receive one Map-Request on ETR from " << Ipv4Address::ConvertFrom (requestMsg->GetItrRlocAddrIp ())<<". Prepare a Map Reply Message.");
 				Ptr<MapReplyMsg> mapReply =
 						LispEtrItrApplication::GenerateMapReply(requestMsg);
-				mapReply->Serialize(newBuf);
-				reactedPacket = Create<Packet>(newBuf, 256);
-				Send(reactedPacket);
-				//TODO: we should add check for the return value of Send method.
-				// Since it is possible that map reply has not been sent due to cache miss...
-				NS_LOG_DEBUG(
-						"Map Reply Sent to " << Ipv4Address::ConvertFrom (requestMsg->GetItrRlocAddrIp()));
+				/**
+				 * Update, 02-02-2018, Qipeng
+				 * We never consider how to process the case NEGATIVE MAP Reply!
+				 * Should checke whether mapReply is 0 before sending it.
+				 */
+				if (mapReply != 0)
+				{
+						mapReply->Serialize(newBuf);
+						reactedPacket = Create<Packet>(newBuf, 256);
+						Send(reactedPacket);
+						//TODO: we should add check for the return value of Send method.
+						// Since it is possible that map reply has not been sent due to cache miss...
+						NS_LOG_DEBUG(
+								"Map Reply Sent to " << Ipv4Address::ConvertFrom (requestMsg->GetItrRlocAddrIp()));
+				}
+				else
+					{
+						NS_LOG_WARN("Negative map reply case! No message will be send to xTR:"<<Ipv4Address::ConvertFrom (requestMsg->GetItrRlocAddrIp()));
+					}
+
 			} else if (requestMsg->GetS() == 1 and requestMsg->GetS2() == 0) {
 				/**
 				 * case: reception of SMR and not a SMR-invoked Map Request.
@@ -588,7 +601,7 @@ void LispEtrItrApplication::HandleMapSockRead(Ptr<Socket> lispMappingSocket) {
 			if (not IsInRequestList(eid)
 					or currRqstNb != LispEtrItrApplication::MAX_REQUEST_NB) {
 				NS_LOG_DEBUG(
-						"Remote EID has been requested "<<unsigned(currRqstNb)<< " times. Start to generate map request message.");
+						"Remote EID"<<eid->Print()<<" has been requested "<<unsigned(currRqstNb)<< " times. Start to generate map request message.");
 				Ptr<MapRequestMsg> mapReqMsg =
 						LispEtrItrApplication::GenerateMapRequest(eid);
 				//I'm not sure what happens if one insert a key-value pair into map if the key is alreay existing.
@@ -605,7 +618,7 @@ void LispEtrItrApplication::HandleMapSockRead(Ptr<Socket> lispMappingSocket) {
 			} else {
 				// if and only isInRequestList and count = max.allowed.nb
 				NS_LOG_DEBUG(
-						"Remote EID has been requested up to "<<unsigned(LispEtrItrApplication::MAX_REQUEST_NB)<<" times! Give up...");
+						"Remote EID has been requested up to "<<unsigned(LispEtrItrApplication::MAX_REQUEST_NB)<<" times! Give up to continue sending map request for this EID");
 				return;
 			}
 
@@ -715,13 +728,18 @@ Ptr<MapReplyMsg> LispEtrItrApplication::GenerateMapReply(
 	Ptr<MapEntry> entry;
 	if (record->GetAfi() == LispControlMsg::IP) {
 		// TODO May be use mapping socket instead
+		NS_LOG_DEBUG("Execute database look up for EID: "<<Ipv4Address::ConvertFrom(record->GetEidPrefix()));
 		entry = m_mapTablesV4->DatabaseLookup(record->GetEidPrefix());
 	} else if (record->GetAfi() == LispControlMsg::IPV6) {
+		NS_LOG_DEBUG("Execute database look up for EID: "<<Ipv6Address::ConvertFrom(record->GetEidPrefix()));
 		entry = m_mapTablesV6->DatabaseLookup(record->GetEidPrefix());
 	}
 	if (entry == 0) {
 		//TODO: Should implement negative map-reply case.
 		NS_LOG_DEBUG("Send Negative Map-Reply");
+		// Now we simply return a 0 in case of negative map reply.
+		return 0;
+
 	} else {
 		NS_LOG_DEBUG("Send Map-Reply to ITR");
 
@@ -813,7 +831,7 @@ Ptr<MapReplyMsg> LispEtrItrApplication::GenerateMapReply4ChangedMapping(
 		SeedManager::SetSeed (++m_seed % ULONG_MAX);
 		// Build map request message, application layer meesage
 		Ptr<MapRequestMsg> mapReqMsg = Create<MapRequestMsg> ();
-		NS_LOG_DEBUG("Create an empty map request message...");
+		NS_LOG_DEBUG("Create an empty map request message for further operations");
 		Address itrAddress = GetLocalAddress (m_mapResolverRlocs.front ()->GetRlocAddress ());
 		if (Ipv4Address::IsMatchingType (itrAddress))
 			{

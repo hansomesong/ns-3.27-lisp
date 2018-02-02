@@ -156,8 +156,8 @@ Simulation3::InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoCli
   // Get @ip for net device of node and use it to initialize echo client
   //UdpEchoClientHelper echoClient(i3i4.GetAddress(1), 9);
   UdpEchoClientHelper echoClient (echoServerIpAddr, port);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (100));
-  echoClient.SetAttribute ("Interval", TimeValue (Seconds (1)));
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (1000));
+  echoClient.SetAttribute ("Interval", TimeValue (Seconds (0.02)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (100));
   // Install echo client app at node 0
   ApplicationContainer clientApps = echoClient.Install (echoClientNode);
