@@ -150,6 +150,7 @@ namespace ns3
             // get address of the interface associated to device
             uint32_t interface;
             Address ifAddress;
+            NS_LOG_DEBUG ("Checking for net device index " << unsigned(j));
 
             if (ipv4) {
                 interface = ipv4->GetInterfaceForDevice(node->GetDevice (j));
@@ -164,9 +165,11 @@ namespace ns3
 
             //NS_LOG_DEBUG ("If Address type: " << ifAddress.);
             //if (Ipv4Address::IsMatchingType (ifAddress))
-            NS_LOG_DEBUG ("CHECKING DEVICES ADDRESSES FOR MAPTABLES" << Ipv4Address::ConvertFrom (ifAddress));
+            NS_LOG_DEBUG ("CHECKING DEVICES ADDRESSES FOR MAPTABLES " << Ipv4Address::ConvertFrom (ifAddress));
+//            NS_LOG_DEBUG ("m_mapTablesIpv4 " << m_mapTablesIpv4);
             if (!ok && m_mapTablesIpv4.find (ifAddress) != m_mapTablesIpv4.end ())
               {
+            		NS_LOG_DEBUG ("Find current address " << Ipv4Address::ConvertFrom (ifAddress));
                 mapTablesIpv4 = m_mapTablesIpv4.at (ifAddress);
                 // they are added at the same time so if mapTablesIpv4 exists, the stats also exist.
                 statisticsForV4 = m_lispStatisticsMapForV4.at (ifAddress);
