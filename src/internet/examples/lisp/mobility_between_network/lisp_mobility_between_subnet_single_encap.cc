@@ -14,6 +14,8 @@
 #include <string>
 #include <cassert>
 
+#include "lisp_mobility_between_subnet_single_encap.h"
+
 #include "ns3/system-path.h"
 #include "ns3/netanim-module.h"
 #include "ns3/core-module.h"
@@ -37,121 +39,69 @@
 #include "ns3/virtual-net-device.h"
 #include "ns3/callback.h"
 
-#include "ns3/internet-trace-helper.h"
-
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("LispMobilityBetweenNetwork");
 
-static bool g_verbose = true;
-
-//class LispMobilityBetweenNetwork{
-//
-//public:
-//
-//
-//}
-
-
-void
-DevTxTrace (std::string context, Ptr<const Packet> p)
+bool
+Fuck::TapVirtualSend (Ptr<Packet> packet, const Address& source,
+		const Address& dest, uint16_t protocolNumber)
 {
-  if (g_verbose)
-    {
-      std::cout << " TX p: " << *p << std::endl;
-    }
-}
-void
-DevRxTrace (std::string context, Ptr<const Packet> p)
-{
-  if (g_verbose)
-    {
-      std::cout << " RX p: " << *p << std::endl;
-    }
-}
-void
-PhyRxOkTrace (std::string context, Ptr<const Packet> packet, double snr,
-	      WifiMode mode, enum WifiPreamble preamble)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYRXOK mode=" << mode << " snr=" << snr << " " << *packet
-	  << std::endl;
-    }
-}
-void
-PhyRxErrorTrace (std::string context, Ptr<const Packet> packet, double snr)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYRXERROR snr=" << snr << " " << *packet << std::endl;
-    }
-}
-void
-PhyTxTrace (std::string context, Ptr<const Packet> packet, WifiMode mode,
-	    WifiPreamble preamble, uint8_t txPower)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYTX mode=" << mode << " " << *packet << std::endl;
-    }
-}
-void
-PhyStateTrace (std::string context, Time start, Time duration,
-	       enum WifiPhy::State state)
-{
-  if (g_verbose)
-    {
-      std::cout << " state=" << state << " start=" << start << " duration="
-	  << duration << std::endl;
-    }
+//    NS_LOG_DEBUG("Transmitted packet: " << *packet);
+	m_netDve->Send (packet, dest, protocolNumber);
+	return true;
 }
 
-static void
-SetPosition (Ptr<Node> node, Vector position)
+Fuck::Fuck (Ptr<VirtualNetDevice> n0Tap, Ptr<NetDevice> netDve) :
+		m_n0Tap (n0Tap), m_netDve (netDve)
 {
-  Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
-  mobility->SetPosition (position);
+	m_n0Tap->SetSendCallback (MakeCallback (&Fuck::TapVirtualSend, this));
 }
 
-static Vector
-GetPosition (Ptr<Node> node)
+Simulation3::Simulation3(Address addr)
 {
-  Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
-  return mobility->GetPosition ();
+  lispMnEidAddr = Ipv4Address ("172.16.0.1");
+  rlocsFile = "rlocs_single_encap.txt";
+  mapServerInitDbFile = "rloc_config_xml_single_encap.txt";
+  wifiPcapFilePrefix = "lisp-mobility-between-subnet-single-encap-wifi";
+
 }
 
-static void
-AdvancePosition (Ptr<Node> node)
+void Simulation3::SetPosition (Ptr<Node> node, Vector position)
 {
-  Vector pos = GetPosition (node);
-  pos.x += 5.0;
-  pos.y -= 5.0;
-  if (pos.x >= 240.0 or pos.y >= 240 or pos.y <=0)
-    {
-      return;
-    }
-  SetPosition (node, pos);
-
-  if (g_verbose)
-    {
-      std::cout << "x=" << pos.x << ", y=" << pos.y << std::endl;
-    }
-  Simulator::Schedule (Seconds (1.0), &AdvancePosition, node);
+	Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
+	mobility->SetPosition (position);
 }
 
-//static void
-//FlyPosition (Ptr<Node> node)
-//{
-//  Vector pos = GetPosition (node);
-//  pos.x = 240.0;
-//  pos.y = 240.0;
-//
-//  SetPosition (node, pos);
-//}
+Vector Simulation3::GetPosition (Ptr<Node> node)
+{
+	Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
+	return mobility->GetPosition ();
+}
+
+void Simulation3::AdvancePosition (Ptr<Node> node)
+{
+	Vector pos = GetPosition (node);
+	pos.x += 5.0;
+	pos.y -= 5.0;
+	if (pos.x >= 240.0 or pos.y >= 240 or pos.y <= 0)
+		{
+			return;
+		}
+	SetPosition (node, pos);
+
+	std::cout << "x=" << pos.x << ", y=" << pos.y << std::endl;
+
+	Simulator::Schedule (Seconds (1.0), &AdvancePosition, node);
+}
+
+
+
+
+
 
 void
-ChangeDefautGateway (Ptr<Node> node, Ipv4Address gateway, uint32_t interface)
+Simulation3::ChangeDefautGateway (Ptr<Node> node, Ipv4Address gateway, uint32_t interface)
 {
   // set defaut route for MN (in WiFi networks)
   Ipv4StaticRoutingHelper ipv4SrHelper;
@@ -164,31 +114,8 @@ ChangeDefautGateway (Ptr<Node> node, Ipv4Address gateway, uint32_t interface)
   ipv4Stat->PrintRoutingTable (stream1);
 }
 
-void
-AdjustStaticRoutingTable (NodeContainer c)
-{
-  // set defaut route for MN (in WiFi networks)
-  Ipv4StaticRoutingHelper ipv4SrHelper;
-  Ptr<Ipv4> ipv4 = c.Get (0)->GetObject<Ipv4> ();
-  Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  // Do not forget to remove previously set default gateway
-  ipv4Stat->RemoveRoute (2);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.1.3"), 1);
 
-  ipv4 = c.Get (5)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  // For node 5, to go to 10.1.1.0/24. It should pass through xTR2, from interface 2, next hop is 10.1.3.1
-  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.1.0"),
-			       Ipv4Mask ("255.255.255.0"),
-			       Ipv4Address ("10.1.3.1"), 2, 0);
-
-  Ptr<OutputStreamWrapper> stream1 = Create<OutputStreamWrapper> (
-      "Static Routing Table for MN", std::ios::out);
-  ipv4Stat->PrintRoutingTable (stream1);
-}
-
-void
-PrintLocations (NodeContainer nodes, std::string header)
+void Simulation3::PrintLocations (NodeContainer nodes, std::string header)
 {
   std::cout << header << std::endl;
   for (NodeContainer::Iterator iNode = nodes.Begin (); iNode != nodes.End ();
@@ -204,20 +131,8 @@ PrintLocations (NodeContainer nodes, std::string header)
   std::cout << std::endl;
 }
 
-void
-PrintAddresses (Ipv4InterfaceContainer container, std::string header)
-{
-  std::cout << header << std::endl;
-  uint32_t nNodes = container.GetN ();
-  for (uint32_t i = 0; i < nNodes; ++i)
-    {
-      std::cout << container.GetAddress (i, 0) << std::endl;
-    }
-  std::cout << std::endl;
-}
 
-void
-InstallMapResolverApplication (Ptr<Node> node, Ipv4Address msAddress,
+void Simulation3::InstallMapResolverApplication (Ptr<Node> node, Ipv4Address msAddress,
 			       Time start, Time end)
 {
   // Initializing Map Resolver Ddt
@@ -229,7 +144,7 @@ InstallMapResolverApplication (Ptr<Node> node, Ipv4Address msAddress,
 }
 
 void
-InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoClientNode,
+Simulation3::InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoClientNode,
 			Ipv4Address echoServerIpAddr, uint16_t port, Time start,
 			Time end)
 {
@@ -241,7 +156,7 @@ InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoClientNode,
   // Get @ip for net device of node and use it to initialize echo client
   //UdpEchoClientHelper echoClient(i3i4.GetAddress(1), 9);
   UdpEchoClientHelper echoClient (echoServerIpAddr, port);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (2000));
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (1000));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (1)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (100));
   // Install echo client app at node 0
@@ -251,30 +166,7 @@ InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoClientNode,
 }
 
 void
-InstallOnOffApplication (Ptr<Node> dstNode, Ptr<Node> srcNode,
-			 Ipv4Address dstIpAddr, uint16_t port, Time start,
-			 Time end)
-{
-  // Create the OnOff applications to send udp datagrams of size
-  // 210 bytes at a rate 448 kb/s
-  NS_LOG_INFO("Create OnOff Applications.");
-  OnOffHelper onoff ("ns3::UdpSocketFactory",
-		     Address (InetSocketAddress (dstIpAddr, port))); // to CN
-  onoff.SetConstantRate (DataRate ("448kb/s"));
-  ApplicationContainer apps = onoff.Install (srcNode); // from MN
-  apps.Start (start);
-  apps.Stop (end);
-  // Create a packet sink to receive these packets at CN node
-  PacketSinkHelper sink (
-      "ns3::UdpSocketFactory",
-      Address (InetSocketAddress (Ipv4Address::GetAny (), port)));
-  apps = sink.Install (dstNode);
-  apps.Start (start);
-  apps.Stop (end);
-}
-
-void
-InstallMapServerApplication (Ptr<Node> node, Time start, Time end)
+Simulation3::InstallMapServerApplication (Ptr<Node> node, Time start, Time end)
 {
   // initializing Map Server ddt helper
   MapServerDdtHelper mapServerDdtHelp;
@@ -284,7 +176,7 @@ InstallMapServerApplication (Ptr<Node> node, Time start, Time end)
 }
 
 void
-InstallDhcpServerApplication (Ptr<Node> node, Ipv4Address prefix,
+Simulation3::InstallDhcpServerApplication (Ptr<Node> node, Ipv4Address prefix,
 			      Ipv4Mask netmask, Ipv4Address dhcpServerAddr,
 			      Ipv4Address min_addr, Ipv4Address max_addr,
 			      Ipv4Address gateway, Time start, Time end)
@@ -298,7 +190,7 @@ InstallDhcpServerApplication (Ptr<Node> node, Ipv4Address prefix,
 }
 
 void
-InstallDhcpClientApplication (Ptr<Node> node, uint32_t device, Time start,
+Simulation3::InstallDhcpClientApplication (Ptr<Node> node, uint32_t device, Time start,
 			      Time end)
 {
   // Do not know... what it means device...
@@ -308,26 +200,9 @@ InstallDhcpClientApplication (Ptr<Node> node, uint32_t device, Time start,
   ap_dhcp_client.Stop (end);
 }
 
-void
-EnablePhyMacTraces ()
-{
-  //TODO I don't know what the following instructions want to do...
-  Config::Connect ("/NodeList/*/DeviceList/*/Mac/MacTx",
-		   MakeCallback (&DevTxTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Mac/MacRx",
-		   MakeCallback (&DevRxTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/RxOk",
-		   MakeCallback (&PhyRxOkTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/RxError",
-		   MakeCallback (&PhyRxErrorTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/Tx",
-		   MakeCallback (&PhyTxTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/State",
-		   MakeCallback (&PhyStateTrace));
-}
 
 void
-InstallLispRouter (NodeContainer nodes)
+Simulation3::InstallLispRouter (NodeContainer nodes)
 {
   /*
    * change normal routers as a xTRs. to do this:
@@ -344,8 +219,8 @@ InstallLispRouter (NodeContainer nodes)
 	curExeBinPathList.remove("build");
 	curExeBinPath = SystemPath::Join(curExeBinPathList.begin(), curExeBinPathList.end());
   NS_LOG_WARN("Current executable binary path:"<<curExeBinPath);
-  std::list<std::string> rlocFilePath =  {"lisp", "mobility_between_network", "rlocs.txt"};
-  std::list<std::string> rlocXmlPath =  {"lisp", "mobility_between_network", "rloc_config_xml.txt"};
+  std::list<std::string> rlocFilePath =  {"lisp", "mobility_between_network", rlocsFile};
+  std::list<std::string> rlocXmlPath =  {"lisp", "mobility_between_network", mapServerInitDbFile};
 
   std::string rlocFP = SystemPath::Append(
 		  curExeBinPath,
@@ -366,13 +241,15 @@ InstallLispRouter (NodeContainer nodes)
 					rlocXmlPath.end()
 			)
 	);
+	NS_LOG_INFO("Install Lisp step 2...");
 	lispHelper.BuildMapTables2 (rlocXmlFP);
+	NS_LOG_INFO("Install Lisp step 3...");
   lispHelper.InstallMapTables (nodes);
   NS_LOG_WARN("Example: Lisp is successfully aggregated");
 }
 
 void
-InstallXtrApplication(NodeContainer nodes, Ipv4Address mrAddress,
+Simulation3::InstallXtrApplication(NodeContainer nodes, Ipv4Address mrAddress,
 		       Ipv4Address msAddress, Time start, Time end){
   LispEtrItrAppHelper lispAppHelper;
   Ptr<Locator> mrLocator = Create<Locator> (mrAddress);
@@ -384,7 +261,7 @@ InstallXtrApplication(NodeContainer nodes, Ipv4Address mrAddress,
 }
 
 void
-PopulateStaticRoutingTable (NodeContainer c)
+Simulation3::PopulateStaticRoutingTable (NodeContainer c)
 {
   // No need to set default route for MN (in WiFi networks) in presence of DHCP server
 
@@ -422,15 +299,10 @@ PopulateStaticRoutingTable (NodeContainer c)
   ipv4 = c.Get (6)->GetObject<Ipv4> ();
   ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
   ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.4.1"), 1);
-
-  // For MS (node 7)
-  ipv4 = c.Get (7)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.6.1"), 1);
 }
 
 void
-PopulateStaticRoutingTable2 (NodeContainer c)
+Simulation3::PopulateStaticRoutingTable2 (NodeContainer c)
 {
   // Static Routing Table without DHCP
   Ipv4StaticRoutingHelper ipv4SrHelper;
@@ -495,53 +367,50 @@ PopulateStaticRoutingTable2 (NodeContainer c)
 			       Ipv4Address ("10.1.3.1"), 2, 0);
   //ipv4Stat->AddNetworkRouteTo(Ipv4Address ("10.3.3.0"), Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.1.5.2"), 4, 0);
 
-  // For MR,(node 6)
+  // For MR/MS,(node 6)
   ipv4 = c.Get (6)->GetObject<Ipv4> ();
   ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
   ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.4.1"), 1);
-
-  // For MS (node 7)
-  ipv4 = c.Get (7)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.6.1"), 1);
 }
 
-class Fuck
-{
-  Ptr<VirtualNetDevice> m_n0Tap;
-  Ptr<NetDevice> m_netDve;
 
-  bool
-  TapVirtualSend (Ptr<Packet> packet, const Address& source,
-		  const Address& dest, uint16_t protocolNumber)
-  {
-//    NS_LOG_DEBUG("Transmitted packet: " << *packet);
-    m_netDve->Send (packet, dest, protocolNumber);
-    return true;
-  }
-
-  //TODO: Maybe should set receive callback? for
-
-public:
-  Fuck (Ptr<VirtualNetDevice> n0Tap, Ptr<NetDevice> netDve) :
-      m_n0Tap (n0Tap), m_netDve (netDve)
-  {
-    m_n0Tap->SetSendCallback (MakeCallback (&Fuck::TapVirtualSend, this));
-  }
-
-};
-
-bool
-TapVirtualSend (Ptr<Packet> packet, const Address& source, const Address& dest,
-		uint16_t protocolNumber, Ptr<NetDevice> netD)
-{
-  //NS_LOG_DEBUG("The content of packet: "<< *packet);
-  netD->Send (packet, dest, protocolNumber);
-  return true;
-}
+//void Simulation3::ConfigureLispMN(Ptr<Node> node, NetDeviceContainer mnDevs)
+////Actually we just need a single input parameter: Ptr<node> node, we can get NetDevice from the latter.
+//{
+//  Ptr<Ipv4> ipv4MN = node->GetObject<Ipv4> ();
+//  uint32_t ifIndex1 = ipv4MN->AddInterface (mnDevs.Get (0));
+//  ipv4MN->AddAddress (
+//      ifIndex1,
+//      Ipv4InterfaceAddress (Ipv4Address ("0.0.0.0"), Ipv4Mask ("/0"))
+//	);
+//  ipv4MN->SetForwarding (ifIndex1, true);
+//  ipv4MN->SetUp (ifIndex1);
+//  /**
+//   * Set TUN/TAP device for LISP-MN node
+//   * A question: for tap, we need to care about Ethernet header or not?
+//   */
+//
+//  Ptr<VirtualNetDevice> m_n0Tap = CreateObject<VirtualNetDevice> ();
+//  m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
+//  node->AddDevice (m_n0Tap);
+//  Ptr<Ipv4> ipv4Tun = node->GetObject<Ipv4> ();
+//  uint32_t ifIndexTap = ipv4Tun->AddInterface (m_n0Tap);
+//  ipv4Tun->AddAddress (
+//      ifIndexTap,
+//      Ipv4InterfaceAddress (Ipv4Address::ConvertFrom(lispMnEidAddr),Ipv4Mask ("255.255.255.255"))
+//	);
+//  ipv4Tun->SetForwarding (ifIndexTap, true);
+//  ipv4Tun->SetUp (ifIndexTap);
+//  /**
+//   * It is obligatory to set TransmitCallBack for virtual-net-device.
+//   * Otherwise when transmitting packet, virtual-net-device does not know what to do,
+//   * because it has not a physical NIC.
+//   */
+//  Fuck fuck (m_n0Tap, mnDevs.Get (0));
+//}
 
 void
-CreateAnimFile (NodeContainer c, std::string animFile)
+Simulation3::CreateAnimFile (NodeContainer c, std::string animFile)
 {
   // Create the animation object and configure for specified output
   AnimationInterface anim (animFile);
@@ -563,7 +432,6 @@ CreateAnimFile (NodeContainer c, std::string animFile)
   anim.SetConstantPosition (c.Get (4), 240, 240);
   anim.SetConstantPosition (c.Get (5), 120, 120);
   anim.SetConstantPosition (c.Get (6), 180, 60);
-  anim.SetConstantPosition (c.Get (7), 240, 0);
   anim.EnablePacketMetadata (true); // Optional
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), Seconds (10)); // Optional
 }
@@ -576,8 +444,12 @@ main (int argc, char *argv[])
 	 * ./waf --run "lisp_mobility_between_subnet --dhcp-collect=0.7 --wifi-beacon-interval=0.2 --map-search-time=0.4"
 	 *
 	 */
+	Address lispMnEidAddr = Ipv4Address ("172.16.0.1");
+	Ptr<Simulation3> sim = CreateObject<Simulation3>(lispMnEidAddr);
+
   LogComponentEnable ("LispMobilityBetweenNetwork", LOG_LEVEL_ALL);
   CommandLine cmd;
+  bool g_verbose = true;
   float dhcp_collect = 1.0;
   float wifiBeaconInterval = 0.2;
   float mappingSearchTime = 0.4; //unit second
@@ -593,22 +465,22 @@ main (int argc, char *argv[])
 //      LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
 //      LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
 //      LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
-//      LogComponentEnable ("DhcpClient", LOG_LEVEL_ALL);
-//      LogComponentEnable ("DhcpClient", LOG_PREFIX_ALL);
-//      LogComponentEnable ("DhcpServer", LOG_LEVEL_ALL);
-//      LogComponentEnable ("DhcpServer", LOG_PREFIX_ALL);
+      LogComponentEnable ("DhcpClient", LOG_LEVEL_ALL);
+      LogComponentEnable ("DhcpClient", LOG_PREFIX_ALL);
+      LogComponentEnable ("DhcpServer", LOG_LEVEL_ALL);
+      LogComponentEnable ("DhcpServer", LOG_PREFIX_ALL);
 //      LogComponentEnable("SimpleMapTables", LOG_LEVEL_DEBUG);
 
       //For LispOverIp
 //      LogComponentEnable ("Ipv4StaticRouting", LOG_LEVEL_DEBUG);
 //      LogComponentEnable ("Ipv4StaticRouting", LOG_PREFIX_ALL);
 
-      LogComponentEnable ("VirtualNetDevice", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("VirtualNetDevice", LOG_PREFIX_ALL);
+//      LogComponentEnable ("VirtualNetDevice", LOG_LEVEL_DEBUG);
+//      LogComponentEnable ("VirtualNetDevice", LOG_PREFIX_ALL);
 
 
-	LogComponentEnable ("WifiNetDevice", LOG_LEVEL_ALL);
-	LogComponentEnable ("WifiNetDevice", LOG_PREFIX_ALL);
+//	LogComponentEnable ("WifiNetDevice", LOG_LEVEL_ALL);
+//	LogComponentEnable ("WifiNetDevice", LOG_PREFIX_ALL);
 //	LogComponentEnable ("StaWifiMac", LOG_LEVEL_ALL);
 //	LogComponentEnable ("StaWifiMac", LOG_PREFIX_ALL);
 
@@ -622,22 +494,22 @@ main (int argc, char *argv[])
       LogComponentEnable ("LispEtrItrApplication", LOG_PREFIX_ALL);
 //      LogComponentEnable ("LispEtrItrAppHelper", LOG_LEVEL_ALL);
 //      LogComponentEnable ("LispEtrItrAppHelper", LOG_PREFIX_ALL);
+      LogComponentEnable ("LispHelper", LOG_LEVEL_ALL);
+      LogComponentEnable ("LispHelper", LOG_PREFIX_ALL);
 
-//      LogComponentEnable ("MapServerDdt", LOG_LEVEL_ALL);
-//      LogComponentEnable ("MapServerDdt", LOG_PREFIX_ALL);
+      LogComponentEnable ("MapServerDdt", LOG_LEVEL_ALL);
+      LogComponentEnable ("MapServerDdt", LOG_PREFIX_ALL);
 
-//      LogComponentEnable ("SimpleMapTables", LOG_LEVEL_ALL);
-//      LogComponentEnable ("SimpleMapTables", LOG_PREFIX_ALL);
+      LogComponentEnable ("SimpleMapTables", LOG_LEVEL_ALL);
+      LogComponentEnable ("SimpleMapTables", LOG_PREFIX_ALL);
 
 //      LogComponentEnable ("Ipv4RawSocketImpl", LOG_LEVEL_ALL);
 //      LogComponentEnable ("Ipv4RawSocketImpl", LOG_PREFIX_ALL);
 //
 //      LogComponentEnable ("Ipv4L3Protocol", LOG_LEVEL_ALL);
 //      LogComponentEnable ("Ipv4L3Protocol", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("LispHelper", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispHelper", LOG_PREFIX_ALL);
-
+			LogComponentEnable ("Ipv4InterfaceAddress", LOG_LEVEL_ALL);
+			LogComponentEnable ("Ipv4InterfaceAddress", LOG_PREFIX_ALL);
 
 
 
@@ -672,13 +544,15 @@ main (int argc, char *argv[])
   NS_LOG_INFO("Default DHCP Collect time is:"<<Seconds (dhcp_collect));
 //  NS_LOG_INFO()
   NodeContainer c;
-  c.Create (8);
+  c.Create (7);
 
   // Scenario: one STA in network 2, managed by 2 APs in network 1,
   // wants to communicate with one PC in another network 2 managed by one P2P link
   // LISP Mapping system have one MR and one MS
   // Except link between stats and aps, other links are p2p-based
   NodeContainer mn = NodeContainer (c.Get (0));
+  NodeContainer lispRouters = NodeContainer (c.Get(0), c.Get (3), c.Get(6));
+  NodeContainer xTRNodes = NodeContainer(c.Get(0), c.Get (3));
   NodeContainer xTR1 = NodeContainer (c.Get (1));
   NodeContainer xTR2 = NodeContainer (c.Get (2));
   NodeContainer d1d5 = NodeContainer (c.Get (1), c.Get (5));
@@ -686,11 +560,10 @@ main (int argc, char *argv[])
   NodeContainer d5d6 = NodeContainer (c.Get (5), c.Get (6));
   NodeContainer d5d3 = NodeContainer (c.Get (5), c.Get (3));
   NodeContainer d3d4 = NodeContainer (c.Get (3), c.Get (4));
-  NodeContainer d6d7 = NodeContainer (c.Get (6), c.Get (7));
 
   // create channels without any IP addressing info
   NS_LOG_INFO("Create p2p channels");
-  PointToPointHelper p2p;
+  PointToPointHelper p2p;//if not pointer type, no need to use key word "new"
   p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
   p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
 
@@ -699,7 +572,6 @@ main (int argc, char *argv[])
   NetDeviceContainer netd5d6 = p2p.Install (d5d6);
   NetDeviceContainer netd5d3 = p2p.Install (d5d3);
   NetDeviceContainer netd3d4 = p2p.Install (d3d4);
-  NetDeviceContainer netd6d7 = p2p.Install (d6d7);
 
   // make all nodes be routers
   InternetStackHelper internet;
@@ -724,9 +596,6 @@ main (int argc, char *argv[])
 
   ipv4.SetBase ("10.1.5.0", "255.255.255.0");
   Ipv4InterfaceContainer i5i3 = ipv4.Assign (netd5d3);
-
-  ipv4.SetBase ("10.1.6.0", "255.255.255.0");
-  Ipv4InterfaceContainer i6i7 = ipv4.Assign (netd6d7);
 
   ipv4.SetBase ("10.3.3.0", "255.255.255.0");
   Ipv4InterfaceContainer i3i4 = ipv4.Assign (netd3d4);
@@ -770,8 +639,7 @@ main (int argc, char *argv[])
 		  "BeaconInterval", TimeValue(Seconds(wifiBeaconInterval)),
 		  "EnableBeaconJitter", BooleanValue(true)
   );
-  // Mofidy above atribute to change Beacon Interval. Now set as 0.6, namely 600 ms.
-  // Compile and execute
+
   NetDeviceContainer xTRDev1, xTRDev2;
   xTRDev1 = wifi.Install (wifiPhy, wifiMac, xTR1);
   xTRDev2 = wifi.Install (wifiPhy, wifiMac, xTR2);
@@ -787,7 +655,7 @@ main (int argc, char *argv[])
    * Set TUN/TAP device for LISP-MN node
    * A question: for tap, we need to care about Ethernet header or not?
    */
-  Address lispMnEidAddr = Ipv4Address ("172.16.0.1");
+//  Address lispMnEidAddr = Ipv4Address ("172.16.0.1");
   Ptr<VirtualNetDevice> m_n0Tap = CreateObject<VirtualNetDevice> ();
   m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
   c.Get (0)->AddDevice (m_n0Tap);
@@ -799,15 +667,12 @@ main (int argc, char *argv[])
 			    Ipv4Mask ("255.255.255.255")));
   ipv4Tun->SetForwarding (ifIndexTap, true);
   ipv4Tun->SetUp (ifIndexTap);
-
-
   /**
    * It is obligatory to set TransmitCallBack for virtual-net-device.
    * Otherwise when transmitting packet, virtual-net-device does not know what to do,
    * because it has not a physical NIC.
    */
   Fuck fuck (m_n0Tap, mnDevs.Get (0));
-
   /*
    * Assign a unique address: 10.1.1.254 for wifi net device on xTR1
    * code snippet fromm dhcp-example.cc
@@ -848,7 +713,7 @@ main (int argc, char *argv[])
   NS_LOG_INFO("Populating routing table...");
   // For such a simple topology, we use static route instead of global routing.
   //Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-  PopulateStaticRoutingTable2 (c);
+  sim->PopulateStaticRoutingTable2 (c);
 
   Ipv4GlobalRoutingHelper helper;
   NS_LOG_INFO("Print routing table...");
@@ -862,19 +727,17 @@ main (int argc, char *argv[])
   Ptr<ListPositionAllocator> positionAlloc =
       CreateObject<ListPositionAllocator> ();
   positionAlloc->Add (Vector (0.0, 110.0, 0.0)); // position MN
-//  positionAlloc->Add (Vector (110, 0.0, 0.0)); // position MN
   positionAlloc->Add (Vector (0.0, 120.0, 0.0)); // position xTR1
   positionAlloc->Add (Vector (120.0, 0.0, 0.0)); // position xTR2
   positionAlloc->Add (Vector (180, 180.0, 0.0)); // position xTR3
   positionAlloc->Add (Vector (240.0, 240.0, 0.0)); // position CN
   positionAlloc->Add (Vector (120.0, 120.0, 0.0)); // position intermiediate router
-  positionAlloc->Add (Vector (180.0, 60.0, 0.0)); // position MR
-  positionAlloc->Add (Vector (240.0, 0.0, 0.0)); //position MS
+  positionAlloc->Add (Vector (180.0, 60.0, 0.0)); // position MR/MS
   mobility.SetPositionAllocator (positionAlloc);
   mobility.Install (c);
-  PrintLocations (c, "Location of all nodes");
+  sim->PrintLocations (c, "Location of all nodes");
 
-  Simulator::Schedule(Seconds(10), &AdvancePosition, mn.Get(0));
+  Simulator::Schedule(Seconds(10), &Simulation3::AdvancePosition, mn.Get(0));
 //  Simulator::Schedule(Seconds(20), &FlyPosition, xTR1.Get(0));
 
 
@@ -887,13 +750,13 @@ main (int argc, char *argv[])
    * Due to DHCP program implementation constraint, we have to first assign a 0.0.0.0/0 for DHCP client
    */
   NS_LOG_INFO("Start DHCP server...");
-  InstallDhcpServerApplication (c.Get (1), Ipv4Address ("10.1.1.0"),
+  sim->InstallDhcpServerApplication (c.Get (1), Ipv4Address ("10.1.1.0"),
 				Ipv4Mask ("/24"), ap1Interface.GetAddress (0),
 				Ipv4Address ("10.1.1.0"),
 				Ipv4Address ("10.1.1.252"),
 				ap1Interface.GetAddress (0), Seconds (0.0),
 				END_T);
-  InstallDhcpServerApplication (c.Get (2), Ipv4Address ("10.1.7.0"),
+  sim->InstallDhcpServerApplication (c.Get (2), Ipv4Address ("10.1.7.0"),
 				Ipv4Mask ("/24"), ap2Interface.GetAddress (0),
 				Ipv4Address ("10.1.7.0"),
 				Ipv4Address ("10.1.7.252"),
@@ -902,48 +765,31 @@ main (int argc, char *argv[])
   //Install DHCP client app at MN (i.e. node 0), has to be runned at the beginning...
   //ATTENTIO!!!: if use DHCP mode, you have to used the second static routing conf...!!!
   NS_LOG_INFO("Start DHCP client at MN...");
-  InstallDhcpClientApplication (c.Get (0), 1, Seconds (0.0), END_T);
-
-//	InstallOnOffApplication(c.Get(4), c.Get(0), i3i4.GetAddress(1), 9, START_T, END_T); // Discard port (RFC 863)
-  InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
+  sim->InstallDhcpClientApplication (c.Get (0), 1, Seconds (0.0), END_T);
+  sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
 			  ECO_END_T); // Discard port (RFC 863)
 
   // Make xTR1&2&3 as lisp-supported routers
-  Ipv4Address msAddr = i6i7.GetAddress (1);
   Ipv4Address mrAddr = i5i6.GetAddress (1);
-//  NodeContainer lispRouters = NodeContainer (c.Get(0), c.Get (1), c.Get (2), c.Get (3), c.Get(6), c.Get(7));
-//  NodeContainer xTRNodes = NodeContainer(c.Get(0), c.Get (1), c.Get (2), c.Get (3));
-  NodeContainer lispRouters = NodeContainer (c.Get(0), c.Get (1), c.Get (3), c.Get(6), c.Get(7));
-  lispRouters.Add(c.Get(2));
-  NodeContainer xTRNodes = NodeContainer(c.Get(0), c.Get (1), c.Get (2), c.Get (3));
-//  NodeContainer xTRNodes2 = NodeContainer();
-  // MR/MS are also lisp-speaking devices => install lisp but no xTR app. Instead mr/ms app.
-  InstallLispRouter (lispRouters);
-  // Install xTR apps on xTR nodes.
-  InstallXtrApplication(xTRNodes, mrAddr, msAddr, Seconds (0.0), END_T);
-  // Stop xTR1 at 20s.
-//  InstallXtrApplication(xTRNodes2, mrAddr, msAddr, Seconds (0.0), Seconds(10.0));
-  // Install Map Resolver at node 6
-  InstallMapResolverApplication (c.Get (6), msAddr, Seconds (0.0), END_T);
-  // Install lisp Mapping server at node 7
-  InstallMapServerApplication (c.Get (7), Seconds (0.0), END_T);
+  Ipv4Address msAddr = i5i6.GetAddress (1);
 
+  // MR/MS are also lisp-speaking devices => install lisp but no xTR app. Instead mr/ms app.
+  sim->InstallLispRouter (lispRouters);
+  // Install xTR apps on xTR nodes.
+  sim->InstallXtrApplication(xTRNodes, mrAddr, msAddr, Seconds (0.0), END_T);
+  // Install lisp Mapping server at node 6. No map resolver in this simulation.
+  sim->InstallMapServerApplication (c.Get (6), Seconds (0.0), END_T);
 
   AsciiTraceHelper ascii;
   p2p.EnableAsciiAll (
-      ascii.CreateFileStream ("lisp-mobility-between-subnet.tr"));
-  wifiPhy.EnableAscii(ascii.CreateFileStream ("lisp-mn.tr"), 0, 1);
+      ascii.CreateFileStream ("lisp-mobility-between-subnet-single-encap.tr"));
+  wifiPhy.EnableAscii(ascii.CreateFileStream ("lisp-mn-single-encap.tr"), 0, 1);
 
-  wifiPhy.EnablePcapAll ("lisp-mobility-between-subnet-wifi", true);
+  wifiPhy.EnablePcapAll ("lisp-mobility-between-subnet-single-encap-wifi", true);
 //  wifiPhy.EnablePcap("lisp-mobility-between-subnet-wifi2", m_n0Tap);
-  p2p.EnablePcapAll ("lisp-mobility-between-subnet");
+  p2p.EnablePcapAll ("lisp-mobility-between-subnet-single-encap");
   MobilityHelper::EnableAsciiAll (
-      ascii.CreateFileStream ("lisp-mobility-between-subnet.mob"));
-
-
-  Names::Add("lisp-mn-ipv4", c.Get(0)->GetObject<Ipv4>());
-
-  internet.EnableAsciiIpv4("ipv4-trace-lisp-mn.tr", "lisp-mn-ipv4", 1);
+      ascii.CreateFileStream ("lisp-mobility-between-subnet-single-encap.mob"));
 
   // Flow Monitor
   FlowMonitorHelper flowmonHelper;
@@ -961,15 +807,11 @@ main (int argc, char *argv[])
   anim.SetConstantPosition (c.Get (4), 240, 240);
   anim.SetConstantPosition (c.Get (5), 120, 120);
   anim.SetConstantPosition (c.Get (6), 180, 60);
-  anim.SetConstantPosition (c.Get (7), 240, 0);
   anim.SetMobilityPollInterval (Seconds (0.25));
   anim.EnablePacketMetadata (true); // Optional
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), END_T); // Optional
-  anim.EnableIpv4RouteTracking ("lisp-mobility-routing-table-case2.xml",
-				Seconds (0), END_T, Seconds (0.25));
-
-
-
+  anim.EnableIpv4RouteTracking ("lisp-mobility-routing-table-case2",
+				Seconds (0), END_T);
 
   NS_LOG_INFO("Run Simulation.");
   // Set stop time before run simulation.

@@ -678,6 +678,10 @@ namespace ns3
 						staticRouting->AddNetworkRouteTo (Ipv4Address ("10.1.5.0"),
 																							Ipv4Mask ("255.255.255.0"),
 																							m_gateway, m_device, 0);
+//
+//						staticRouting->AddNetworkRouteTo(Ipv4Address("0.0.0.0"), Ipv4Mask("/1"), 2);
+//						staticRouting->AddNetworkRouteTo(Ipv4Address("128.0.0.0"), Ipv4Mask("/1"), 2);
+
 					}
 				/**
 				 * Finally, two static route to ensure that traffic always uses EID as source address

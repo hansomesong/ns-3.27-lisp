@@ -27,7 +27,11 @@ def build(bld):
     	 ['point-to-point', 'network', 'internet', 'internet-apps', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim', 'virtual-net-device']
     )
     obj.source = 'lisp/mobility_between_network/lisp_mobility_between_subnet.cc'
-    
+    obj = bld.create_ns3_program(
+    	'lisp_mobility_between_subnet_single_encap',
+    	 ['point-to-point', 'network', 'internet', 'internet-apps', 'core', 'mobility', 'wifi', 'applications', 'config-store', 'flow-monitor', 'stats', 'netanim', 'virtual-net-device']
+    )
+    obj.source = 'lisp/mobility_between_network/lisp_mobility_between_subnet_single_encap.cc'
     
     obj = bld.create_ns3_program(
     	'new_lisp_mobility_between_subnet',
