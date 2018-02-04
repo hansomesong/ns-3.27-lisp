@@ -720,6 +720,13 @@ Ipv4L3Protocol::SendWithHeader (Ptr<Packet> packet,
                                 Ptr<Ipv4Route> route)
 {
   NS_LOG_FUNCTION (this << packet << ipHeader << route);
+	if(route)
+		{
+			NS_LOG_DEBUG("The content of received Ipv4 route: "<<*route);
+		}
+	else{
+			NS_LOG_DEBUG("No route is given as input parameter!");
+	}
   if (Node::ChecksumEnabled ())
     {
       ipHeader.EnableChecksum ();
@@ -787,6 +794,13 @@ Ipv4L3Protocol::Send (Ptr<Packet> packet,
 	 * will be called, which causes segmentation fault
 	 */
 	// lisp procedure will executed.
+	if(route)
+		{
+			NS_LOG_DEBUG("The content of received Ipv4 route: "<<*route);
+		}
+	else{
+			NS_LOG_DEBUG("No route is given as input parameter!");
+	}
 	if (lispOverIpv4 != 0 and nbEntriesDB != 0)
 		{
 			Ptr<MapEntry> srcMapEntry = 0;
@@ -807,6 +821,7 @@ Ipv4L3Protocol::Send (Ptr<Packet> packet,
 				}
 			else
 				{
+					NS_LOG_DEBUG("The given Ipv4 route is 0. Need to create one...");
 					Socket::SocketErrno errno_;
 					Ptr<NetDevice> oif (0); // unused for now
 					Ptr<Ipv4Route> newRoute;
@@ -818,7 +833,8 @@ Ipv4L3Protocol::Send (Ptr<Packet> packet,
 						}
 					else
 						{
-							NS_LOG_ERROR("Ipv4L3Protocol::Send: m_routingProtocol == 0");
+							NS_ASSERT_MSG(m_routingProtocol != 0, "Ipv4L3Protocol::Send: m_routingProtocol should never be 0!");
+//							NS_LOG_ERROR("Ipv4L3Protocol::Send: m_routingProtocol == 0");
 						}
 					if (newRoute)
 						{
@@ -1403,6 +1419,7 @@ Ipv4L3Protocol::SourceAddressSelection (uint32_t interfaceIdx, Ipv4Address dest)
   NS_LOG_FUNCTION (this << interfaceIdx << " " << dest);
   if (GetNAddresses (interfaceIdx) == 1)  // common case
     {
+  		NS_LOG_DEBUG("Only one address at: "<<interfaceIdx<<". The selected source address: "<<GetAddress (interfaceIdx, 0).GetLocal ());
       return GetAddress (interfaceIdx, 0).GetLocal ();
     }
   // no way to determine the scope of the destination, so adopt the
@@ -1417,6 +1434,7 @@ Ipv4L3Protocol::SourceAddressSelection (uint32_t interfaceIdx, Ipv4Address dest)
         {
           if (test.IsSecondary () == false)
             {
+          		NS_LOG_DEBUG("The selected source address: "<<test.GetLocal ());
               return test.GetLocal ();
             }
         }
@@ -1444,6 +1462,7 @@ Ipv4L3Protocol::SelectSourceAddress (Ptr<const NetDevice> device,
           if (iaddr.GetScope () > scope) continue; 
           if (dst.CombineMask (iaddr.GetMask ())  == iaddr.GetLocal ().CombineMask (iaddr.GetMask ()) )
             {
+          		NS_LOG_DEBUG("The selected source address: "<<iaddr.GetLocal ());
               return iaddr.GetLocal ();
             }
           if (!found)
@@ -1455,6 +1474,7 @@ Ipv4L3Protocol::SelectSourceAddress (Ptr<const NetDevice> device,
     }
   if (found)
     {
+  		NS_LOG_DEBUG("The found source address: "<<iaddr.GetLocal ());
       return addr;
     }
 
@@ -1468,6 +1488,7 @@ Ipv4L3Protocol::SelectSourceAddress (Ptr<const NetDevice> device,
           if (iaddr.GetScope () != Ipv4InterfaceAddress::LINK 
               && iaddr.GetScope () <= scope) 
             {
+          		NS_LOG_DEBUG("The found source address: "<<iaddr.GetLocal ());
               return iaddr.GetLocal ();
             }
         }

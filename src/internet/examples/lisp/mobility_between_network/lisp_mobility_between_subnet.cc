@@ -515,7 +515,10 @@ class Fuck
   TapVirtualSend (Ptr<Packet> packet, const Address& source,
 		  const Address& dest, uint16_t protocolNumber)
   {
-//    NS_LOG_DEBUG("Transmitted packet: " << *packet);
+  	/**
+  	 * Surprisingly, the input parameter is already a IP packet (with double encapsulation!!!)
+  	 */
+    NS_LOG_DEBUG("Transmitted packet(I want to know the packet is IP or Ethernet or Wifi): " << *packet);
     m_netDve->Send (packet, dest, protocolNumber);
     return true;
   }
@@ -590,8 +593,8 @@ main (int argc, char *argv[])
   g_verbose = true;
   if (g_verbose)
     {	//TODO: Add Log Component for lisp-related class.
-//      LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
-//      LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
 //      LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
 //      LogComponentEnable ("DhcpClient", LOG_LEVEL_ALL);
 //      LogComponentEnable ("DhcpClient", LOG_PREFIX_ALL);
@@ -600,15 +603,26 @@ main (int argc, char *argv[])
 //      LogComponentEnable("SimpleMapTables", LOG_LEVEL_DEBUG);
 
       //For LispOverIp
-//      LogComponentEnable ("Ipv4StaticRouting", LOG_LEVEL_DEBUG);
-//      LogComponentEnable ("Ipv4StaticRouting", LOG_PREFIX_ALL);
+      LogComponentEnable ("Ipv4StaticRouting", LOG_LEVEL_DEBUG);
+      LogComponentEnable ("Ipv4StaticRouting", LOG_PREFIX_ALL);
+      LogComponentEnable ("Ipv4ListRouting", LOG_LEVEL_DEBUG);
+      LogComponentEnable ("Ipv4ListRouting", LOG_PREFIX_ALL);
+      LogComponentEnable ("Ipv4RoutingProtocol", LOG_LEVEL_DEBUG);
+      LogComponentEnable ("Ipv4RoutingProtocol", LOG_PREFIX_ALL);
 
       LogComponentEnable ("VirtualNetDevice", LOG_LEVEL_DEBUG);
       LogComponentEnable ("VirtualNetDevice", LOG_PREFIX_ALL);
 
+      LogComponentEnable ("UdpSocketImpl", LOG_LEVEL_DEBUG);
+      LogComponentEnable ("UdpSocketImpl", LOG_PREFIX_ALL);
 
-	LogComponentEnable ("WifiNetDevice", LOG_LEVEL_ALL);
-	LogComponentEnable ("WifiNetDevice", LOG_PREFIX_ALL);
+      LogComponentEnable ("UdpL4Protocol", LOG_LEVEL_DEBUG);
+      LogComponentEnable ("UdpL4Protocol", LOG_PREFIX_ALL);
+
+
+
+//	LogComponentEnable ("WifiNetDevice", LOG_LEVEL_ALL);
+//	LogComponentEnable ("WifiNetDevice", LOG_PREFIX_ALL);
 //	LogComponentEnable ("StaWifiMac", LOG_LEVEL_ALL);
 //	LogComponentEnable ("StaWifiMac", LOG_PREFIX_ALL);
 
@@ -632,8 +646,10 @@ main (int argc, char *argv[])
 //      LogComponentEnable ("Ipv4RawSocketImpl", LOG_LEVEL_ALL);
 //      LogComponentEnable ("Ipv4RawSocketImpl", LOG_PREFIX_ALL);
 //
-//      LogComponentEnable ("Ipv4L3Protocol", LOG_LEVEL_ALL);
-//      LogComponentEnable ("Ipv4L3Protocol", LOG_PREFIX_ALL);
+      LogComponentEnable ("Ipv4L3Protocol", LOG_LEVEL_ALL);
+      LogComponentEnable ("Ipv4L3Protocol", LOG_PREFIX_ALL);
+      LogComponentEnable ("Ipv4Interface", LOG_LEVEL_ALL);
+      LogComponentEnable ("Ipv4Interface", LOG_PREFIX_ALL);
 
 //      LogComponentEnable ("LispHelper", LOG_LEVEL_ALL);
 //      LogComponentEnable ("LispHelper", LOG_PREFIX_ALL);
@@ -878,7 +894,7 @@ main (int argc, char *argv[])
 //  Simulator::Schedule(Seconds(20), &FlyPosition, xTR1.Get(0));
 
 
-  Time END_T = Seconds (45.5);
+  Time END_T = Seconds (10);
   Time ECO_END_T = Seconds (45.5);
   Time START_T = Seconds (1.0);
 

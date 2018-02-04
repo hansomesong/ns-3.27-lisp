@@ -31,6 +31,8 @@ namespace ns3
 
 		TunNetDevice ();
 
+		TunNetDevice (Ptr<NetDevice> realDev);
+
 		virtual
 		~TunNetDevice ();
 
@@ -146,6 +148,8 @@ namespace ns3
 	  */
 		bool m_supportsSendFrom;
 		bool m_isPointToPoint;
+
+		Ptr<NetDevice> m_RealDev;
 	};
 
 } /* namespace ns3 */

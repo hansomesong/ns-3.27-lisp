@@ -11,6 +11,9 @@
 #include "ns3/uinteger.h"
 #include "ns3/mac48-address.h"
 #include "ns3/channel.h"
+#include "ns3/ipv4-static-routing-helper.h"
+
+#include "ns3/ipv4.h"
 
 namespace ns3
 {
@@ -72,10 +75,21 @@ namespace ns3
 	{
 		// TODO Auto-generated constructor stub
 		// The MAC addresss is randomly chooosed. No matter.
-		SetAddress (Mac48Address ("11:00:01:02:03:01"));
+		SetAddress (Mac48Address::Allocate());
 	  m_needsArp = false;
 	  m_supportsSendFrom = true;
 	  m_isPointToPoint = true;
+	}
+
+	TunNetDevice::TunNetDevice (Ptr<NetDevice> realDev)
+	{
+		// TODO Auto-generated constructor stub
+		// The MAC addresss is randomly chooosed. No matter.
+		SetAddress (Mac48Address::Allocate());
+	  m_needsArp = false;
+	  m_supportsSendFrom = true;
+	  m_isPointToPoint = true;
+	  m_RealDev = realDev;
 	}
 
 	TunNetDevice::~TunNetDevice ()
@@ -280,8 +294,44 @@ namespace ns3
 	bool
 	TunNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protocolNumber)
 	{
+		/**
+		 * Upate, 02-03-2018, Qipeng
+		 * The send method of this TUN device will call the send method of IP protocol (Ipv4 or Ipv6)
+		 * The signature:
+		 * Ipv4L3Protocol::Send(
+		 * 				Ptr<Packet> packet,
+		 * 				Ipv4Address source,
+		 * 				Ipv4Address dest,
+		 * 				uint8_t protocol,
+		 * 				Ptr<Ipv4Route> route)
+		 * We configure static route as follow:
+		 * 	  ipv4Stat->AddNetworkRouteTo(Ipv4Address("0.0.0.0"), Ipv4Mask("/1"), 2);
+  	 *		ipv4Stat->AddNetworkRouteTo(Ipv4Address("128.0.0.0"), Ipv4Mask("/1"), 2);
+  	 * so that the Echo application always choose TUN device to send packet. The latter then
+  	 * uses default static (via gateway configured by DHCP client) and invokes the send method
+  	 * of Ip level. Ip level protocol (adapted to support LISP) is in charges of LISP encapsulation and transmission
+		 *
+		 * One question: input parameter `dest` is a MAC address or Ip address?
+		 * I guess it is a MAC address, but we don't care its value since the implementation of this method will call
+		 * Ip send method which will can call send method of WifiNetDevice. WifiNetDevice is in charge of searching
+		 * `dst`
+		 */
 		NS_LOG_FUNCTION ( this << packet << dest << protocolNumber << "TUN needs to send...");
 	  m_macTxTrace (packet);
+	  Ipv4Header iph;
+	  packet->PeekHeader (iph);
+	  Socket::SocketErrno err;
+	  Ptr<Ipv4> ipv4 = m_node->GetObject<Ipv4>();
+	  Ipv4StaticRoutingHelper ipv4RoutingHelper;
+	  ipv4->GetRoutingProtocol();
+	  Ptr<Ipv4StaticRouting> staticRouting = ipv4RoutingHelper.GetStaticRouting (ipv4);
+	  Ptr<Ipv4Route> defaultRoute = staticRouting->RouteOutput(packet, iph, m_RealDev, err);
+
+//	  ipv4->Send(Ptr<Packet> packet,
+//               Ipv4Address source,
+//               Ipv4Address destination,
+//               uint8_t protocol,
+//               Ptr<Ipv4Route> route);
 //	  if (m_sendCb (packet, GetAddress (), dest, protocolNumber))
 		if (m_sendCb (packet, dest, protocolNumber))
 
