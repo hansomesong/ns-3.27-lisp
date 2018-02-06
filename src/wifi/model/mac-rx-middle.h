@@ -22,6 +22,9 @@
 #define MAC_RX_MIDDLE_H
 
 #include <map>
+#include <utility>
+#include "ns3/callback.h"
+#include "ns3/mac48-address.h"
 #include "ns3/packet.h"
 #include "ns3/simple-ref-count.h"
 
@@ -42,6 +45,7 @@ public:
    * typedef for callback
    */
   typedef Callback<void, Ptr<Packet>, const WifiMacHeader*> ForwardUpCallback;
+  typedef Callback<void, Ptr<Packet>, const WifiMacHeader*,  double> ForwardUpSnrCallback;
 
   MacRxMiddle ();
   ~MacRxMiddle ();
@@ -52,16 +56,10 @@ public:
    * \param callback
    */
   void SetForwardCallback (ForwardUpCallback callback);
+  void SetForwardSnrCallback (ForwardUpSnrCallback callback);
 
-  /**
-   * Receive a packet.
-   *
-   * \param packet the packet
-   * \param hdr MAC header
-   */
   void Receive (Ptr<Packet> packet, const WifiMacHeader *hdr);
-
-
+  void SnrReceive (Ptr<Packet> packet, const WifiMacHeader *hdr, double rxSnr);
 private:
   /// allow MacRxMiddleTest associated class access
   friend class MacRxMiddleTest;
@@ -124,6 +122,7 @@ private:
   Originators m_originatorStatus; ///< originator status
   QosOriginators m_qosOriginatorStatus; ///< QOS originator status
   ForwardUpCallback m_callback; ///< forward up callback
+	ForwardUpSnrCallback m_snrCallback;
 };
 
 } //namespace ns3

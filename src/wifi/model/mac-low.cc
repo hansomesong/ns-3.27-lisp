@@ -20,18 +20,30 @@
  *          Mirko Banchi <mk.banchi@gmail.com>
  */
 
+#include "ns3/assert.h"
+#include "ns3/packet.h"
 #include "ns3/simulator.h"
+#include "ns3/tag.h"
 #include "ns3/log.h"
 #include "ns3/socket.h"
+#include "ns3/node.h"
+#include "ns3/double.h"
+
 #include "mac-low.h"
+#include "wifi-phy.h"
+#include "wifi-mac-trailer.h"
+#include "qos-utils.h"
 #include "edca-txop-n.h"
 #include "wifi-mac-trailer.h"
 #include "snr-tag.h"
+#include "yans-wifi-phy.h"
 #include "ampdu-tag.h"
 #include "wifi-mac-queue.h"
+#include "mpdu-aggregator.h"
 
 #undef NS_LOG_APPEND_CONTEXT
 #define NS_LOG_APPEND_CONTEXT std::clog << "[mac=" << m_self << "] "
+
 
 namespace ns3 {
 
@@ -280,6 +292,7 @@ MacLow::MacLow ()
     m_ctsToSelfSupported (false)
 {
   NS_LOG_FUNCTION (this);
+  m_enableSnr = false;
   for (uint8_t i = 0; i < 8; i++)
     {
       m_aggregateQueue[i] = CreateObject<WifiMacQueue> ();
@@ -598,7 +611,11 @@ MacLow::SetRxCallback (Callback<void, Ptr<Packet>, const WifiMacHeader *> callba
 {
   m_rxCallback = callback;
 }
-
+void
+MacLow::SetSnrRxCallback (Callback<void,Ptr<Packet>,const WifiMacHeader *,  double> callback)
+{
+  m_rxSnrCallback = callback;
+}
 void
 MacLow::RegisterDcf (Ptr<DcfManager> dcf)
 {
@@ -1148,8 +1165,16 @@ MacLow::ReceiveOk (Ptr<Packet> packet, double rxSnr, WifiTxVector txVector, bool
 rxPacket:
   WifiMacTrailer fcs;
   packet->RemoveTrailer (fcs);
-  m_rxCallback (packet, &hdr);
-  return;
+   if (m_enableSnr)
+     {
+       NS_LOG_DEBUG ("enable snr receive " << m_enableSnr << rxSnr);
+       m_rxSnrCallback (packet, &hdr, rxSnr);
+     }
+   else
+     {
+       m_rxCallback (packet, &hdr);
+     }
+   return;
 }
 
 uint32_t
@@ -3096,6 +3121,12 @@ MacLow::AddWifiMacTrailer (Ptr<Packet> packet)
 {
   WifiMacTrailer fcs;
   packet->AddTrailer (fcs);
+}
+
+void
+MacLow::EnableForwardSnr (bool enable)
+{
+  m_enableSnr = enable;
 }
 
 } //namespace ns3

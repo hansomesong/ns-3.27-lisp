@@ -20,8 +20,13 @@
 
 #include "mac-rx-middle.h"
 #include "wifi-mac-header.h"
+
+#include "ns3/assert.h"
 #include "ns3/log.h"
+#include "ns3/packet.h"
+#include "ns3/simulator.h"
 #include "ns3/sequence-number.h"
+#include <list>
 
 namespace ns3 {
 
@@ -188,6 +193,13 @@ MacRxMiddle::SetForwardCallback (ForwardUpCallback callback)
   m_callback = callback;
 }
 
+void
+MacRxMiddle::SetForwardSnrCallback (ForwardUpSnrCallback callback)
+{
+  NS_LOG_FUNCTION_NOARGS ();
+  m_snrCallback = callback;
+}
+
 OriginatorRxStatus *
 MacRxMiddle::Lookup (const WifiMacHeader *hdr)
 {
@@ -337,4 +349,47 @@ MacRxMiddle::Receive (Ptr<Packet> packet, const WifiMacHeader *hdr)
   m_callback (agregate, hdr);
 }
 
-} //namespace ns3
+void
+MacRxMiddle::SnrReceive (Ptr<Packet> packet, const WifiMacHeader *hdr, double rxSnr)
+{
+  NS_LOG_FUNCTION (packet << hdr);
+  NS_ASSERT (hdr->IsData () || hdr->IsMgt ());
+  OriginatorRxStatus *originator = Lookup (hdr);
+  /**
+   * The check below is really uneeded because it can fail in a lot of
+   * normal cases. Specifically, it is possible for sequence numbers to
+   * loop back to zero once they reach 0xfff0 and to go up to 0xf7f0 in
+   * which case the check below will report the two sequence numbers to
+   * not have the correct order relationship.
+   * So, this check cannot be used to discard old duplicate frames. It is
+   * thus here only for documentation purposes.
+   */
+  if (!(SequenceNumber16 (originator->GetLastSequenceControl ()) < SequenceNumber16 (hdr->GetSequenceControl ())))
+    {
+      NS_LOG_DEBUG ("Sequence numbers have looped back. last recorded=" << originator->GetLastSequenceControl () <<
+                    " currently seen=" << hdr->GetSequenceControl ());
+    }
+  // filter duplicates.
+  if (IsDuplicate (hdr, originator))
+    {
+      NS_LOG_DEBUG ("duplicate from=" << hdr->GetAddr2 () <<
+                    ", seq=" << hdr->GetSequenceNumber () <<
+                    ", frag=" << hdr->GetFragmentNumber ());
+      return;
+    }
+  Ptr<Packet> agregate = HandleFragments (packet, hdr, originator);
+  if (agregate == 0)
+    {
+      return;
+    }
+  NS_LOG_DEBUG ("forwarding data from=" << hdr->GetAddr2 () <<
+                ", seq=" << hdr->GetSequenceNumber () <<
+                ", frag=" << hdr->GetFragmentNumber ());
+  if (!hdr->GetAddr1 ().IsGroup ())
+    {
+      originator->SetSequenceControl (hdr->GetSequenceControl ());
+    }
+  m_snrCallback (agregate, hdr, rxSnr);
+}
+
+} // namespace ns3
