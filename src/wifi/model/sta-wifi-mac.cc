@@ -368,6 +368,7 @@ StaWifiMac::TryToEnsureAssociated (void)
        * We try to initiate a probe request now.
        */
       m_linkDown ();
+      NS_LOG_DEBUG("WifiNetDevice is in state of link-down!");
       if (m_activeProbing)
         {
           SetState (WAIT_PROBE_RESP);
@@ -388,6 +389,7 @@ StaWifiMac::TryToEnsureAssociated (void)
        */
       break;
     case SCANNING:
+      NS_LOG_DEBUG("StaWifiMac is in state of scanning!");
       break;
     }
 }
@@ -443,6 +445,9 @@ StaWifiMac::MissedBeacons (void)
                                               &StaWifiMac::MissedBeacons, this);
       return;
     }
+  NS_LOG_DEBUG ("beacon missed");
+  NS_LOG_DEBUG("The state of StaWifiMac before explictely channing state:"<<m_state);
+//  SetState (BEACON_MISSED);
   RunScanOrProbe();
 }
 
@@ -1124,6 +1129,7 @@ StaWifiMac::SetEdcaParameters (AcIndex ac, uint8_t cwMin, uint8_t cwMax, uint8_t
 void
 StaWifiMac::NotifySwitchingStartNow (Time duration)
 {
+	NS_LOG_INFO(this<<duration);
   Simulator::Schedule (duration,
                        &StaWifiMac::ScanningSwitchChannelEnd, this);
 }
@@ -1194,6 +1200,7 @@ StaWifiMac::ScanningSwitchChannelStart(void)
     }
   else
     {
+  		NS_LOG_DEBUG("Start to change the channel number of underlying physical layer");
       m_phy->SetChannelNumber (m_scanChannelNumber);
     }
 }
