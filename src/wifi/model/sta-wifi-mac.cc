@@ -1146,7 +1146,7 @@ StaWifiMac::ScanningStart(void)
   NS_LOG_FUNCTION (this);
   m_probeRequestEvent.Cancel ();
   m_beaconWatchdog.Cancel ();
-  m_scanChannelNumber = 0;
+  m_scanChannelNumber = 1;
   m_scanResults.clear ();
   m_low->EnableForwardSnr (true);
   m_bestAP = NULL;
