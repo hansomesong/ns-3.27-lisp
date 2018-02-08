@@ -78,6 +78,11 @@ public:
   void SendSmrMsg(void);
 
   /**
+   * \brief send SMR(i.e. Map Request Message with S bit set as 1) for a given EID
+   * to all other xTRs
+   */
+  void SendSmrMsg (Ptr<EndpointId> eid);
+  /**
    * \brief After reception of a SMR by a xTR, send an invoked-SMR(i.e. Map Request Message with S and s bit set as 1)
    * to the aforementioned xTR. This take the received SMR as the only input method
    * and returns nothing.
