@@ -122,6 +122,9 @@ void SimpleMapTables::Print (std::ostream &os) const
 
 Ptr<MapEntry> SimpleMapTables::DatabaseLookup(const Address &eidAddress) {
 	// TODO Turn eidAddress in prefix
+	/**
+	 * Qipeng: It seems that Lionel has not considered longest prefix match...
+	 */
 	NS_LOG_FUNCTION(this);
 	Ptr<EndpointId> eid = Create<EndpointId>(eidAddress);
 	std::map<Ptr<EndpointId>, Ptr<MapEntry>, CompareEndpointId>::iterator it =
@@ -559,37 +562,4 @@ bool SimpleMapTables::IsMapForReceivedPacket(Ptr<const Packet> p,
 
 	return true;
 }
-
-//////////////////
-// MapEntryImpl
-
-MapEntryImpl::MapEntryImpl() {
-	m_locators = Create<LocatorsImpl>();
-}
-
-MapEntryImpl::MapEntryImpl(Ptr<Locator> locator) {
-	m_locators = Create<LocatorsImpl>();
-	m_locators->InsertLocator(locator);
-}
-
-MapEntryImpl::~MapEntryImpl() {
-
-}
-
-
-//TODO: If one
-Ptr<Locator> MapEntryImpl::FindLocator(const Address &address) const {
-	return m_locators->FindLocator(address);
-}
-
-Ptr<Locator> MapEntryImpl::RlocSelection(void) const {
-	return m_locators->SelectFirsValidRloc();
-}
-
-std::string MapEntryImpl::Print(void) const {
-	//std::string mapEntry = "EID prefix:";
-
-	return m_locators->Print();
-}
-
 } /* namespace ns3 */

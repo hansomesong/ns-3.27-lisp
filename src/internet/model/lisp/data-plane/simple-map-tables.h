@@ -146,33 +146,8 @@ namespace ns3
     std::map<Ptr<EndpointId>, Ptr<MapEntry>, CompareEndpointId> m_mappingCache;
     std::map<Ptr<EndpointId>, Ptr<MapEntry>, CompareEndpointId> m_mappingDatabase;
     Ptr<LispEtrItrApplication> m_xTRApp;
-
-
-
   };
 
-  /**
-   *
-   */
-
-  /**
-   *
-   */
-  class MapEntryImpl : public MapEntry
-  {
-  public:
-    MapEntryImpl ();
-    MapEntryImpl (Ptr<Locator> locator);
-    virtual
-    ~MapEntryImpl ();
-
-    Ptr<Locator>
-    FindLocator (const Address &address) const;
-    Ptr<Locator>
-    RlocSelection (void) const;
-    std::string
-    Print (void) const;
-  };
   std::ostream& operator<< (std::ostream &os, SimpleMapTables const &simpleMapTable);
 } /* namespace ns3 */
 

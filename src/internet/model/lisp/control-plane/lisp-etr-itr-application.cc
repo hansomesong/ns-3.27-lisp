@@ -414,7 +414,7 @@ namespace ns3
 								uint8_t newBuf[256];
 								// Instead of response the queried EID-prefix, maReply conveys the content of database!
 								Ptr<MapReplyMsg> mapReply =
-										LispEtrItrApplication::GenerateMapReply4ChangedMapping (
+										LispEtrItrApplication::GenerateMapReply (
 												requestMsg);
 								mapReply->Serialize (newBuf);
 								reactedPacket = Create<Packet> (newBuf, 256);
@@ -496,13 +496,15 @@ namespace ns3
 						if (Ipv4Address::ConvertFrom(eidAddr).IsEqual(Ipv4Address("10.1.1.0")))
 								if(Ipv4Address::ConvertFrom(corrRlocAddr).IsEqual(Ipv4Address("10.1.3.1")))
 									{
-//											//Add an entry 10.1.1.1 & 10.1.3.1 into database...
-//										Ptr<MapEntry> mapEntry = Create<MapEntryImpl> ();
-//										mapEntry->SetEidPrefix (Create<EndpointId>(Ipv4Address("10.1.1.1"), Ipv4Mask("/32")));
-//										mapEntry->setIsNegative (0);
-//										mapEntry->SetLocators (notifyMsg->GetRecord()->GetLocators());
-//										m_mapTablesV4->SetEntry(Ipv4Address("10.1.1.1"), Ipv4Mask("/32"), mapEntry, MapTables::IN_DATABASE);
+											//Add an entry 10.1.1.1 & 10.1.3.1 into database...
+										Ptr<MapEntry> mapEntry = Create<MapEntryImpl> ();
+										mapEntry->SetEidPrefix (Create<EndpointId>(Ipv4Address("10.1.1.1"), Ipv4Mask("/32")));
+										mapEntry->setIsNegative (0);
+										mapEntry->SetLocators (notifyMsg->GetRecord()->GetLocators());
+										m_mapTablesV4->SetEntry(Ipv4Address("10.1.1.1"), Ipv4Mask("/32"), mapEntry, MapTables::IN_DATABASE);
+										NS_LOG_DEBUG("After insertion of mapping in map notification:"<<*m_mapTablesV4);
 									}
+
 						if (m_mapTablesV4->GetNMapEntriesLispCache () != 0
 								or m_mapTablesV6->GetNMapEntriesLispCache () != 0)
 							{
