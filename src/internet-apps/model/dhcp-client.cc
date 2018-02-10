@@ -255,6 +255,7 @@ namespace ns3
 	MakeCallback (&DhcpClient::LinkStateHandler, this));
     NS_LOG_DEBUG(
 	"Add a Link Change Callback to net device with index: "<<unsigned(m_device));
+    Boot();
   }
 
 	void
@@ -403,6 +404,7 @@ namespace ns3
 		NS_LOG_FUNCTION(this << socket);
 		Address from;
 		Ptr<Packet> packet = m_socket->RecvFrom (2048, 0, from);
+		NS_LOG_DEBUG("Received packet:"<<packet);
 
 		Ipv4Header ipHeader;
 		UdpHeader udpHeader;
