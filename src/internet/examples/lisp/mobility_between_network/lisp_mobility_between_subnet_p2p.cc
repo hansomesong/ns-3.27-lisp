@@ -9,12 +9,12 @@
  */
 
 // TODO Add helper header
+#include "lisp_mobility_between_subnet_p2p.h"
+
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <cassert>
-
-#include "lisp_mobility_between_subnet_no_wifi.h"
 
 #include "ns3/system-path.h"
 #include "ns3/netanim-module.h"
@@ -157,9 +157,9 @@ Simulation3::InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoCli
   // Get @ip for net device of node and use it to initialize echo client
   //UdpEchoClientHelper echoClient(i3i4.GetAddress(1), 9);
   UdpEchoClientHelper echoClient (echoServerIpAddr, port);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (1000));
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (10000));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (1)));
-  echoClient.SetAttribute ("PacketSize", UintegerValue (100));
+  echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
   // Install echo client app at node 0
   ApplicationContainer clientApps = echoClient.Install (echoClientNode);
   clientApps.Start (start);
@@ -366,27 +366,17 @@ main (int argc, char *argv[])
 
   LogComponentEnable ("LispMobilityBetweenNetwork", LOG_LEVEL_ALL);
   CommandLine cmd;
-  bool g_verbose = true;
-  float dhcp_collect = 0.5;
-  float wifiBeaconInterval = 0.2;
-  float mappingSearchTime = 0.4; //unit second
-  cmd.AddValue ("verbose", "Print trace information if true", g_verbose);
+  float dhcp_collect = 1.0;
+  float mappingSearchTime = 0.0; //unit second
   cmd.AddValue ("dhcp-collect", "Time for which offer collection starts", dhcp_collect);
-  cmd.AddValue ("wifi-beacon-interval", "Time for which offer collection starts", wifiBeaconInterval);
   cmd.AddValue ("map-search-time", "Time consumed for EID-RLOC mapping search in map server", mappingSearchTime);
 
   cmd.Parse (argc, argv);
-  g_verbose = true;
 
   std::string animFile = "lisp-mobility-between-subnet.xml"; // Name of file for animation output
   Packet::EnablePrinting ();
 
   // enable rts cts all the time.
-  Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold",
-		      StringValue ("2200"));
-  // disable fragmentation
-  Config::SetDefault ("ns3::WifiRemoteStationManager::FragmentationThreshold",
-		      StringValue ("2200"));
   Config::SetDefault ("ns3::Ipv4GlobalRouting::RandomEcmpRouting",
 		      BooleanValue (true));
   Config::SetDefault ("ns3::DhcpClient::Collect", TimeValue (Seconds (dhcp_collect)));
@@ -421,7 +411,7 @@ main (int argc, char *argv[])
   NS_LOG_INFO("Create p2p channels");
   PointToPointHelper p2p;//if not pointer type, no need to use key word "new"
   p2p.SetDeviceAttribute ("DataRate", StringValue ("10Mbps"));
-  p2p.SetChannelAttribute ("Delay", StringValue ("5ms"));
+  p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
 
   NetDeviceContainer netd1d5 = p2p.Install (d1d5);
   NetDeviceContainer netd2d5 = p2p.Install (d2d5);
