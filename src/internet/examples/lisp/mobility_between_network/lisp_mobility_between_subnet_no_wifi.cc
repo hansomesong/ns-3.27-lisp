@@ -29,6 +29,8 @@
 #include "ns3/map-resolver-helper.h"
 #include "ns3/map-server-helper.h"
 #include "ns3/lisp-etr-itr-app-helper.h"
+#include "ns3/wifi-module.h"
+#include "ns3/wifi-mac.h"
 #include "ns3/virtual-net-device.h"
 #include "ns3/lisp-header.h"
 #include "ns3/mobility-module.h"
@@ -55,6 +57,7 @@ Fuck::Fuck (Ptr<VirtualNetDevice> n0Tap, Ptr<NetDevice> netDve) :
 {
 	m_n0Tap->SetSendCallback (MakeCallback (&Fuck::TapVirtualSend, this));
 }
+
 
 Simulation3::Simulation3(Address addr)
 {
@@ -259,56 +262,18 @@ Simulation3::InstallXtrApplication(NodeContainer nodes, Ipv4Address mrAddress,
 }
 
 void
-Simulation3::PopulateStaticRoutingTable (NodeContainer c)
-{
-  // No need to set default route for MN (in WiFi networks) in presence of DHCP server
-
-  // Populate routing table for xTR1
-  Ipv4StaticRoutingHelper ipv4SrHelper;
-  Ptr<Ipv4> ipv4 = c.Get (1)->GetObject<Ipv4> ();
-  Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.2.2"), 1);
-
-  // For xTR2 (node 2)
-  ipv4 = c.Get (2)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.3.2"), 1);
-
-  // For xTR3 (node 3)
-  ipv4 = c.Get (3)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.5.1"), 1);
-
-  // For CN (node 4)
-  ipv4 = c.Get (4)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.3.1"), 1);
-
-  // For intermediate router node 5
-  ipv4 = c.Get (5)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  //ipv4Stat->AddNetworkRouteTo(Ipv4Address ("10.1.1.0"), Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.1.2.1"), 1, 0);
-  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.6.0"),
-			       Ipv4Mask ("255.255.255.0"),
-			       Ipv4Address ("10.1.4.2"), 3, 0);
-  //ipv4Stat->AddNetworkRouteTo(Ipv4Address ("10.3.3.0"), Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.1.5.2"), 4, 0);
-
-  // For MR,(node 6)
-  ipv4 = c.Get (6)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.4.1"), 1);
-}
-
-void
-Simulation3::PopulateStaticRoutingTable2 (NodeContainer c)
+Simulation3::PopulateStaticRoutingTable2 (NodeContainer c, uint32_t tunDevIndex)
 {
   // Static Routing Table without DHCP
   Ipv4StaticRoutingHelper ipv4SrHelper;
   Ptr<Ipv4> ipv4 = c.Get (0)->GetObject<Ipv4> ();
   Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
+
+//	// IP route for DHCP request
+//	ipv4Stat->AddHostRouteTo(Ipv4Address("255.255.255.255"), 1);
   //TODO: Should automatically to find the interface index for TUN device.
-  ipv4Stat->AddNetworkRouteTo(Ipv4Address("0.0.0.0"), Ipv4Mask("/1"), 3);
-  ipv4Stat->AddNetworkRouteTo(Ipv4Address("128.0.0.0"), Ipv4Mask("/1"), 3);
+  ipv4Stat->AddNetworkRouteTo(Ipv4Address("0.0.0.0"), Ipv4Mask("/1"), tunDevIndex);
+  ipv4Stat->AddNetworkRouteTo(Ipv4Address("128.0.0.0"), Ipv4Mask("/1"), tunDevIndex);
 
   // Populate routing table for xTR1
   ipv4 = c.Get (1)->GetObject<Ipv4> ();
@@ -355,17 +320,6 @@ Simulation3::CreateAnimFile (NodeContainer c, std::string animFile)
 {
   // Create the animation object and configure for specified output
   AnimationInterface anim (animFile);
-  // node positions
-  // It seems that what the Iterator gets is the pointer...
-  /*for (NodeContainer::Iterator iNode = c.Begin(); iNode != c.End();
-   ++iNode) {
-   Ptr<Node> object = *iNode;
-   Ptr<MobilityModel> position = object->GetObject<MobilityModel>();
-   NS_ASSERT(position != 0);
-   Vector pos = position->GetPosition();
-   anim.SetConstantPosition(object, pos.x, pos.y, pos.z);
-   }
-   */
   anim.SetConstantPosition (c.Get (0), 0, 110);
   anim.SetConstantPosition (c.Get (1), 0, 120);
   anim.SetConstantPosition (c.Get (2), 120, 0);
@@ -375,25 +329,6 @@ Simulation3::CreateAnimFile (NodeContainer c, std::string animFile)
   anim.SetConstantPosition (c.Get (6), 180, 60);
   anim.EnablePacketMetadata (true); // Optional
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), Seconds (10)); // Optional
-}
-
-void UpNIC(Ptr<Node> node, uint32_t ifIndex)
-{
-  Ptr<Ipv4> ipv4MN = node->GetObject<Ipv4> ();
-  ipv4MN->SetUp(ifIndex);
-}
-
-void DownNIC(Ptr<Node> node, uint32_t ifIndex)
-{
-  Ptr<Ipv4> ipv4MN = node->GetObject<Ipv4> ();
-  ipv4MN->SetDown(ifIndex);
-}
-
-void HandOver(Ptr<Node> node, Ptr<VirtualNetDevice> tunNet, Ptr<NetDevice> net)
-{
-	DownNIC(node, 1);
-	UpNIC(node, 2);
-	Fuck fuck (tunNet, net);
 }
 
 
@@ -410,16 +345,28 @@ main (int argc, char *argv[])
 	Ptr<Simulation3> sim = CreateObject<Simulation3>(lispMnEidAddr);
 
   LogComponentEnable ("LispMobilityBetweenNetwork", LOG_LEVEL_ALL);
-  float dhcp_collect = 1.0;
-  float mappingSearchTime = 0.4; //unit second
   CommandLine cmd;
+  bool g_verbose = true;
+  float dhcp_collect = 0.5;
+  float wifiBeaconInterval = 0.2;
+  float mappingSearchTime = 0.4; //unit second
+  cmd.AddValue ("verbose", "Print trace information if true", g_verbose);
   cmd.AddValue ("dhcp-collect", "Time for which offer collection starts", dhcp_collect);
+  cmd.AddValue ("wifi-beacon-interval", "Time for which offer collection starts", wifiBeaconInterval);
   cmd.AddValue ("map-search-time", "Time consumed for EID-RLOC mapping search in map server", mappingSearchTime);
-  cmd.Parse (argc, argv);
 
-  std::string animFile = "lisp-mobility-no-wifi.xml"; // Name of file for animation output
+  cmd.Parse (argc, argv);
+  g_verbose = true;
+
+  std::string animFile = "lisp-mobility-between-subnet.xml"; // Name of file for animation output
   Packet::EnablePrinting ();
 
+  // enable rts cts all the time.
+  Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold",
+		      StringValue ("2200"));
+  // disable fragmentation
+  Config::SetDefault ("ns3::WifiRemoteStationManager::FragmentationThreshold",
+		      StringValue ("2200"));
   Config::SetDefault ("ns3::Ipv4GlobalRouting::RandomEcmpRouting",
 		      BooleanValue (true));
   Config::SetDefault ("ns3::DhcpClient::Collect", TimeValue (Seconds (dhcp_collect)));
@@ -429,7 +376,7 @@ main (int argc, char *argv[])
 
   NS_LOG_INFO("Create nodes.");
   NS_LOG_INFO("Default DHCP Collect time is:"<<Seconds (dhcp_collect));
-//  NS_LOG_INFO()
+
   NodeContainer c;
   c.Create (7);
 
@@ -439,9 +386,11 @@ main (int argc, char *argv[])
   // Except link between stats and aps, other links are p2p-based
   NodeContainer mnxTR1 = NodeContainer (c.Get (0), c.Get (1));
   NodeContainer mnxTR2 = NodeContainer (c.Get (0), c.Get (2));
+
   NodeContainer lispRouters = NodeContainer (c.Get(0), c.Get (1), c.Get(2), c.Get (3), c.Get(6));
   NodeContainer xTRNodes = NodeContainer(c.Get(0), c.Get (1), c.Get (2), c.Get (3));
-
+  NodeContainer xTR1 = NodeContainer (c.Get (1));
+  NodeContainer xTR2 = NodeContainer (c.Get (2));
   NodeContainer d1d5 = NodeContainer (c.Get (1), c.Get (5));
   NodeContainer d2d5 = NodeContainer (c.Get (2), c.Get (5));
   NodeContainer d5d6 = NodeContainer (c.Get (5), c.Get (6));
@@ -451,11 +400,9 @@ main (int argc, char *argv[])
   // create channels without any IP addressing info
   NS_LOG_INFO("Create p2p channels");
   PointToPointHelper p2p;//if not pointer type, no need to use key word "new"
-  p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
-  p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
+  p2p.SetDeviceAttribute ("DataRate", StringValue ("10Mbps"));
+  p2p.SetChannelAttribute ("Delay", StringValue ("5ms"));
 
-  NetDeviceContainer netmnxTR1 = p2p.Install (mnxTR1);
-  NetDeviceContainer netmnxTR2 = p2p.Install (mnxTR2);
   NetDeviceContainer netd1d5 = p2p.Install (d1d5);
   NetDeviceContainer netd2d5 = p2p.Install (d2d5);
   NetDeviceContainer netd5d6 = p2p.Install (d5d6);
@@ -471,9 +418,6 @@ main (int argc, char *argv[])
 
   ipv4.SetBase ("10.1.2.0", "255.255.255.0");
   Ipv4InterfaceContainer i1i5 = ipv4.Assign (netd1d5);
-  // Set link metrics to make sure that xTR1 is the best choice for prefix 10.1.1.0/24
-  i1i5.SetMetric (0, 1);
-  i1i5.SetMetric (1, 1);
 
   ipv4.SetBase ("10.1.3.0", "255.255.255.0");
   Ipv4InterfaceContainer i2i5 = ipv4.Assign (netd2d5);
@@ -487,29 +431,36 @@ main (int argc, char *argv[])
   ipv4.SetBase ("10.3.3.0", "255.255.255.0");
   Ipv4InterfaceContainer i3i4 = ipv4.Assign (netd3d4);
 
+  NetDeviceContainer mnxTR1Devs = p2p.Install (mnxTR1);
+  NetDeviceContainer mnxTR2Devs = p2p.Install (mnxTR2);
+
   Ptr<Ipv4> ipv4MN = c.Get (0)->GetObject<Ipv4> ();
-  uint32_t ifIndex1 = ipv4MN->AddInterface (netmnxTR1.Get (0));
-  NS_LOG_DEBUG("The interface index: "<<ifIndex1);
+  uint32_t ifIndex1 = ipv4MN->AddInterface (mnxTR1Devs.Get (0));
   ipv4MN->AddAddress (
       ifIndex1,
       Ipv4InterfaceAddress (Ipv4Address ("0.0.0.0"), Ipv4Mask ("/0")));
   ipv4MN->SetForwarding (ifIndex1, true);
   ipv4MN->SetUp (ifIndex1);
 
-  uint32_t ifIndex2 = ipv4MN->AddInterface (netmnxTR2.Get (0));
-  NS_LOG_DEBUG("The interface index: "<<ifIndex2);
+  ipv4MN = c.Get (0)->GetObject<Ipv4> ();
+  ifIndex1 = ipv4MN->AddInterface (mnxTR2Devs.Get (0));
   ipv4MN->AddAddress (
-      ifIndex2,
+      ifIndex1,
       Ipv4InterfaceAddress (Ipv4Address ("0.0.0.0"), Ipv4Mask ("/0")));
-  ipv4MN->SetForwarding (ifIndex2, true);
-  ipv4MN->SetDown(ifIndex2);
+  ipv4MN->SetForwarding (ifIndex1, true);
+  ipv4MN->SetMetric(ifIndex1, 4);
+  ipv4MN->SetUp (ifIndex1);
 
+  /**
+   * Set TUN/TAP device for LISP-MN node
+   * A question: for tap, we need to care about Ethernet header or not?
+   */
+//  Address lispMnEidAddr = Ipv4Address ("172.16.0.1");
   Ptr<VirtualNetDevice> m_n0Tap = CreateObject<VirtualNetDevice> ();
   m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
   c.Get (0)->AddDevice (m_n0Tap);
   Ptr<Ipv4> ipv4Tun = c.Get (0)->GetObject<Ipv4> ();
   uint32_t ifIndexTap = ipv4Tun->AddInterface (m_n0Tap);
-  NS_LOG_DEBUG("The interface index of TUN device: "<<ifIndexTap);
   ipv4Tun->AddAddress (
       ifIndexTap,
       Ipv4InterfaceAddress (Ipv4Address::ConvertFrom(lispMnEidAddr),
@@ -521,14 +472,13 @@ main (int argc, char *argv[])
    * Otherwise when transmitting packet, virtual-net-device does not know what to do,
    * because it has not a physical NIC.
    */
-  Fuck fuck (m_n0Tap, netmnxTR1.Get (0));
-
+  Fuck fuck (m_n0Tap, mnxTR1Devs.Get (0));
   /*
    * Assign a unique address: 10.1.1.254 for wifi net device on xTR1
-   * code snippet from dhcp-example.cc
+   * code snippet fromm dhcp-example.cc
    */
   Ptr<Ipv4> ipv4xTR1 = c.Get (1)->GetObject<Ipv4> ();
-  uint32_t ifIndex = ipv4xTR1->AddInterface (netmnxTR1.Get (1));
+  uint32_t ifIndex = ipv4xTR1->AddInterface (mnxTR1Devs.Get (1));
   ipv4xTR1->AddAddress (
       ifIndex,
       Ipv4InterfaceAddress (Ipv4Address ("10.1.1.254"), Ipv4Mask ("/24")));
@@ -543,7 +493,7 @@ main (int argc, char *argv[])
    * code snippet fromm dhcp-example.cc
    */
   Ptr<Ipv4> ipv4xTR2 = c.Get (2)->GetObject<Ipv4> ();
-  ifIndex = ipv4xTR2->AddInterface (netmnxTR2.Get (1));
+  uint32_t ifIndex2 = ipv4xTR2->AddInterface (mnxTR2Devs.Get (1));
   ipv4xTR2->AddAddress (
       ifIndex,
       Ipv4InterfaceAddress (Ipv4Address ("10.1.7.254"), Ipv4Mask ("/24")));
@@ -551,16 +501,13 @@ main (int argc, char *argv[])
   ipv4xTR2->SetMetric (ifIndex, 1);
   ipv4xTR2->SetUp (ifIndex);
   Ipv4InterfaceContainer ap2Interface;
-  ap2Interface.Add (ipv4xTR2, ifIndex);
+  ap2Interface.Add (ipv4xTR2, ifIndex2);
 
-
-  Time handOverTime = Seconds(10);
-  Simulator::Schedule(handOverTime, &HandOver, c.Get(0), m_n0Tap, netmnxTR2.Get (0));
-  // Create router node before assigning @ip for xTR2 to avoid multiple path problem.
+  // Crate router node before assigning @ip for xTR2 to avoid multiple path problem.
   NS_LOG_INFO("Populating routing table...");
   // For such a simple topology, we use static route instead of global routing.
   //Ipv4GlobalRoutingHelper::PopulateRoutingTables();
-  sim->PopulateStaticRoutingTable2 (c);
+  sim->PopulateStaticRoutingTable2 (c, ifIndexTap);
 
   Ipv4GlobalRoutingHelper helper;
   NS_LOG_INFO("Print routing table...");
@@ -582,11 +529,10 @@ main (int argc, char *argv[])
   positionAlloc->Add (Vector (180.0, 60.0, 0.0)); // position MR/MS
   mobility.SetPositionAllocator (positionAlloc);
   mobility.Install (c);
-  sim->PrintLocations (c, "Location of all nodes");
 
-  Time END_T = Seconds (20);
-  Time ECO_END_T = Seconds (20);
-  Time START_T = Seconds (1.0);
+  Time END_T = Seconds (20.0);
+  Time ECO_END_T = Seconds (45.5);
+  Time START_T = Seconds (5.0);
 
   /*
    * Now use DHCP server to allocate @Ip for MN
@@ -609,6 +555,8 @@ main (int argc, char *argv[])
   //ATTENTIO!!!: if use DHCP mode, you have to used the second static routing conf...!!!
   NS_LOG_INFO("Start DHCP client at MN...");
   sim->InstallDhcpClientApplication (c.Get (0), 1, Seconds (0.0), END_T);
+  sim->InstallDhcpClientApplication (c.Get (0), 2, Seconds (10.0), END_T);
+
   sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
 			  ECO_END_T); // Discard port (RFC 863)
 
@@ -625,12 +573,12 @@ main (int argc, char *argv[])
 
   AsciiTraceHelper ascii;
   p2p.EnableAsciiAll (
-      ascii.CreateFileStream ("lisp-mobility-no-wifi.tr"));
+      ascii.CreateFileStream ("lisp-mobility-between-subnet.tr"));
 
 //  wifiPhy.EnablePcap("lisp-mobility-between-subnet-wifi2", m_n0Tap);
-  p2p.EnablePcapAll ("lisp-mobility-no-wifi");
+  p2p.EnablePcapAll ("lisp-mobility-between-subnet-no-wifi");
   MobilityHelper::EnableAsciiAll (
-      ascii.CreateFileStream ("lisp-mobility-between-subnet.mob"));
+      ascii.CreateFileStream ("lisp-mobility-between-subnet-no-wifi.mob"));
 
   // Flow Monitor
   FlowMonitorHelper flowmonHelper;
@@ -651,7 +599,7 @@ main (int argc, char *argv[])
   anim.SetMobilityPollInterval (Seconds (0.25));
   anim.EnablePacketMetadata (true); // Optional
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), END_T); // Optional
-  anim.EnableIpv4RouteTracking ("lisp-mobility-no-wifi-routing-table",
+  anim.EnableIpv4RouteTracking ("lisp-mobility-routing-table-case2",
 				Seconds (0), END_T);
 
   NS_LOG_INFO("Run Simulation.");

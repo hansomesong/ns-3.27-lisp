@@ -35,6 +35,7 @@
 #include "ns3/callback.h"
 
 
+
 namespace ns3
 {
 	class Node;
@@ -100,10 +101,7 @@ namespace ns3
 														Ipv4Address msAddress, Time start, Time end);
 
 		void
-		PopulateStaticRoutingTable (NodeContainer c);
-
-		void
-		PopulateStaticRoutingTable2 (NodeContainer c);
+		PopulateStaticRoutingTable2 (NodeContainer c, uint32_t index);
 
 		void
 		CreateAnimFile (NodeContainer c, std::string animFile);
@@ -119,16 +117,18 @@ namespace ns3
 
 	class Fuck
 	{
-		Ptr<VirtualNetDevice> m_n0Tap;
-		Ptr<NetDevice> m_netDve;
+
+	public:
+		Fuck (Ptr<VirtualNetDevice> n0Tap, Ptr<NetDevice> netDve);
+
+		void ChangeCB(Ptr<NetDevice> netDve);
 
 		bool
 		TapVirtualSend (Ptr<Packet> packet, const Address& source,
 										const Address& dest, uint16_t protocolNumber);
 
-	public:
-		Fuck (Ptr<VirtualNetDevice> n0Tap, Ptr<NetDevice> netDve);
-
+		Ptr<VirtualNetDevice> m_n0Tap;
+		Ptr<NetDevice> m_netDve;
 	};
 
 }
