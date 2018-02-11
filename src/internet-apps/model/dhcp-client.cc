@@ -77,7 +77,7 @@ namespace ns3
 			.AddAttribute (
 					"RTRS",
 					"Time for retransmission of Discover message",
-					TimeValue (Seconds (10)),
+					TimeValue (Seconds (100)),
 					MakeTimeAccessor (&DhcpClient::m_rtrs),
 					MakeTimeChecker ())
 			.AddAttribute (

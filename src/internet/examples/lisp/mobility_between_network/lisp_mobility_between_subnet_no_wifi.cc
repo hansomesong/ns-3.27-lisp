@@ -274,6 +274,8 @@ Simulation3::PopulateStaticRoutingTable2 (NodeContainer c, uint32_t tunDevIndex)
   //TODO: Should automatically to find the interface index for TUN device.
   ipv4Stat->AddNetworkRouteTo(Ipv4Address("0.0.0.0"), Ipv4Mask("/1"), tunDevIndex);
   ipv4Stat->AddNetworkRouteTo(Ipv4Address("128.0.0.0"), Ipv4Mask("/1"), tunDevIndex);
+//  ipv4Stat->AddNetworkRouteTo(Ipv4Address("0.0.0.0"), Ipv4Mask("/1"), 4);
+//  ipv4Stat->AddNetworkRouteTo(Ipv4Address("128.0.0.0"), Ipv4Mask("/1"), 4);
 
   // Populate routing table for xTR1
   ipv4 = c.Get (1)->GetObject<Ipv4> ();
@@ -331,7 +333,25 @@ Simulation3::CreateAnimFile (NodeContainer c, std::string animFile)
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), Seconds (10)); // Optional
 }
 
+void HandOver(Ptr<Node> node, Ptr<VirtualNetDevice> tun, Ptr<NetDevice> dev)
+{
+  Ptr<Ipv4> ipv4MN = node->GetObject<Ipv4> ();
+  ipv4MN->SetDown (1);
+  ipv4MN->SetDown (3);
+  ipv4MN->SetUp (2);
+  ipv4MN->SetUp (4);
 
+  Ipv4StaticRoutingHelper ipv4SrHelper;
+  Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
+  Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
+
+//	// IP route for DHCP request
+//	ipv4Stat->AddHostRouteTo(Ipv4Address("255.255.255.255"), 1);
+  //TODO: Should automatically to find the interface index for TUN device.
+
+  ipv4Stat->AddNetworkRouteTo(Ipv4Address("0.0.0.0"), Ipv4Mask("/1"), 4);
+  ipv4Stat->AddNetworkRouteTo(Ipv4Address("128.0.0.0"), Ipv4Mask("/1"), 4);
+}
 
 int
 main (int argc, char *argv[])
@@ -448,7 +468,7 @@ main (int argc, char *argv[])
       ifIndex1,
       Ipv4InterfaceAddress (Ipv4Address ("0.0.0.0"), Ipv4Mask ("/0")));
   ipv4MN->SetForwarding (ifIndex1, true);
-  ipv4MN->SetMetric(ifIndex1, 4);
+//  ipv4MN->SetMetric(ifIndex1, 4);
   ipv4MN->SetUp (ifIndex1);
 
   /**
@@ -467,12 +487,26 @@ main (int argc, char *argv[])
 			    Ipv4Mask ("255.255.255.255")));
   ipv4Tun->SetForwarding (ifIndexTap, true);
   ipv4Tun->SetUp (ifIndexTap);
+
+  Ptr<VirtualNetDevice> m_n0Tap2 = CreateObject<VirtualNetDevice> ();
+  m_n0Tap2->SetAddress (Mac48Address ("11:00:01:02:03:02"));
+  c.Get (0)->AddDevice (m_n0Tap2);
+  Ptr<Ipv4> ipv4Tun2 = c.Get (0)->GetObject<Ipv4> ();
+  uint32_t ifIndexTap2 = ipv4Tun2->AddInterface (m_n0Tap2);
+  ipv4Tun2->AddAddress (
+      ifIndexTap2,
+      Ipv4InterfaceAddress (Ipv4Address::ConvertFrom(lispMnEidAddr),
+			    Ipv4Mask ("255.255.255.255")));
+  ipv4Tun2->SetForwarding (ifIndexTap2, true);
+  ipv4Tun2->SetUp (ifIndexTap2);
   /**
    * It is obligatory to set TransmitCallBack for virtual-net-device.
    * Otherwise when transmitting packet, virtual-net-device does not know what to do,
    * because it has not a physical NIC.
    */
   Fuck fuck (m_n0Tap, mnxTR1Devs.Get (0));
+  Fuck fuck2 (m_n0Tap2, mnxTR2Devs.Get (0));
+
   /*
    * Assign a unique address: 10.1.1.254 for wifi net device on xTR1
    * code snippet fromm dhcp-example.cc
@@ -533,7 +567,9 @@ main (int argc, char *argv[])
   Time END_T = Seconds (20.0);
   Time ECO_END_T = Seconds (45.5);
   Time START_T = Seconds (5.0);
+  Time HandTime = Seconds(15.5);
 
+  Simulator::Schedule(HandTime, &HandOver, c.Get(0), m_n0Tap, mnxTR2Devs.Get (0));
   /*
    * Now use DHCP server to allocate @Ip for MN
    * Due to DHCP program implementation constraint, we have to first assign a 0.0.0.0/0 for DHCP client
@@ -555,7 +591,7 @@ main (int argc, char *argv[])
   //ATTENTIO!!!: if use DHCP mode, you have to used the second static routing conf...!!!
   NS_LOG_INFO("Start DHCP client at MN...");
   sim->InstallDhcpClientApplication (c.Get (0), 1, Seconds (0.0), END_T);
-  sim->InstallDhcpClientApplication (c.Get (0), 2, Seconds (10.0), END_T);
+  sim->InstallDhcpClientApplication (c.Get (0), 2, HandTime, END_T);
 
   sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
 			  ECO_END_T); // Discard port (RFC 863)
