@@ -80,6 +80,7 @@ namespace ns3
     // now we can open the mapping socket
     lisp->OpenLispMappingSocket ();
     /**
+     * QP SONG
      * After trying and comparing, it is better to create mapTablesv4 and mapTablesv6
      * within lisp-helper. For normal xTRs, it makes no sense, because LispHelper::InstallMapTables()
      * iterates the NodeContainer and assign the corresponding map Tables to lispOverIpv4. The two

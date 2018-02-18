@@ -591,82 +591,6 @@ main (int argc, char *argv[])
 
   cmd.Parse (argc, argv);
   g_verbose = true;
-  if (g_verbose)
-    {	//TODO: Add Log Component for lisp-related class.
-      LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
-//      LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
-//      LogComponentEnable ("DhcpClient", LOG_LEVEL_ALL);
-//      LogComponentEnable ("DhcpClient", LOG_PREFIX_ALL);
-//      LogComponentEnable ("DhcpServer", LOG_LEVEL_ALL);
-//      LogComponentEnable ("DhcpServer", LOG_PREFIX_ALL);
-//      LogComponentEnable("SimpleMapTables", LOG_LEVEL_DEBUG);
-
-      //For LispOverIp
-      LogComponentEnable ("Ipv4StaticRouting", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("Ipv4StaticRouting", LOG_PREFIX_ALL);
-      LogComponentEnable ("Ipv4ListRouting", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("Ipv4ListRouting", LOG_PREFIX_ALL);
-      LogComponentEnable ("Ipv4RoutingProtocol", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("Ipv4RoutingProtocol", LOG_PREFIX_ALL);
-
-      LogComponentEnable ("VirtualNetDevice", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("VirtualNetDevice", LOG_PREFIX_ALL);
-
-      LogComponentEnable ("UdpSocketImpl", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("UdpSocketImpl", LOG_PREFIX_ALL);
-
-      LogComponentEnable ("UdpL4Protocol", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("UdpL4Protocol", LOG_PREFIX_ALL);
-
-
-
-//	LogComponentEnable ("WifiNetDevice", LOG_LEVEL_ALL);
-//	LogComponentEnable ("WifiNetDevice", LOG_PREFIX_ALL);
-//	LogComponentEnable ("StaWifiMac", LOG_LEVEL_ALL);
-//	LogComponentEnable ("StaWifiMac", LOG_PREFIX_ALL);
-
-      //For LispOverIp
-//      LogComponentEnable ("LispOverIp", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispOverIp", LOG_PREFIX_ALL);
-//      LogComponentEnable ("LispOverIpv4Impl", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispOverIpv4Impl", LOG_PREFIX_ALL);
-      //For LispEtrItrApplication
-      LogComponentEnable ("LispEtrItrApplication", LOG_LEVEL_ALL);
-      LogComponentEnable ("LispEtrItrApplication", LOG_PREFIX_ALL);
-//      LogComponentEnable ("LispEtrItrAppHelper", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispEtrItrAppHelper", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("MapServerDdt", LOG_LEVEL_ALL);
-//      LogComponentEnable ("MapServerDdt", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("SimpleMapTables", LOG_LEVEL_ALL);
-//      LogComponentEnable ("SimpleMapTables", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("Ipv4RawSocketImpl", LOG_LEVEL_ALL);
-//      LogComponentEnable ("Ipv4RawSocketImpl", LOG_PREFIX_ALL);
-//
-      LogComponentEnable ("Ipv4L3Protocol", LOG_LEVEL_ALL);
-      LogComponentEnable ("Ipv4L3Protocol", LOG_PREFIX_ALL);
-      LogComponentEnable ("Ipv4Interface", LOG_LEVEL_ALL);
-      LogComponentEnable ("Ipv4Interface", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("LispHelper", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispHelper", LOG_PREFIX_ALL);
-
-
-
-
-    }
-  bool mapSocketAddressLog = true;
-  if (mapSocketAddressLog)
-    {
-      //For MappingSocketAddress
-//		LogComponentEnable("LispMappingSocket", LOG_LEVEL_DEBUG);
-//		LogComponentEnable("LispMappingSocket", LOG_PREFIX_ALL);
-//		LogComponentEnable("MappingSocketAddress", LOG_LEVEL_DEBUG);
-//		LogComponentEnable("MappingSocketAddress", LOG_PREFIX_ALL);
-    }
 
   std::string animFile = "lisp-mobility-between-subnet.xml"; // Name of file for animation output
   Packet::EnablePrinting ();
@@ -894,7 +818,7 @@ main (int argc, char *argv[])
 //  Simulator::Schedule(Seconds(20), &FlyPosition, xTR1.Get(0));
 
 
-  Time END_T = Seconds (10);
+  Time END_T = Seconds (40);
   Time ECO_END_T = Seconds (45.5);
   Time START_T = Seconds (1.0);
 

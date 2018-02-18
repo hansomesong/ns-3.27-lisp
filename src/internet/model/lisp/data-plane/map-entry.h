@@ -52,6 +52,9 @@ protected:
 
 private:
   // Mapping flags
+  /**
+   * Q.P: Whether the following flags are really necessary?
+   */
   bool m_inDatabase;
   bool m_isStatic; // Is manually added
   bool m_isUsable;

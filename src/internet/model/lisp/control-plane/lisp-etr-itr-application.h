@@ -90,6 +90,11 @@ public:
    */
   void SendMapRequest(Ptr<MapRequestMsg> mapRequestMsg);
 
+  /**
+   * \brief Send a map request message. This one is used as a callback for LispOverIp object.
+   * This method should be in charge of map request message generation and transmission.
+   */
+  void SendMapRequest2(Address eidPrefix);
 //protected:
   /**
    * \brief Schedule the next packet transmission

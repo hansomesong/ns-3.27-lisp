@@ -406,7 +406,8 @@ LispOverIpv4::MapStatus LispOverIpv4Impl::IsMapForEncapsulation (Ipv4Header cons
       Ptr<Packet> packet = Create<Packet> (buf, 100);
       NS_LOG_DEBUG ("Send Notification to all LISP apps");
 
-      SendNotifyMessage (static_cast<uint8_t> (LispMappingSocket::MAPM_MISS), packet, sockMsgHdr, 0);
+//      SendNotifyMessage (static_cast<uint8_t> (LispMappingSocket::MAPM_MISS), packet, sockMsgHdr, 0);
+      CacheMissHandler (static_cast<Address> (innerHeader.GetDestination ()));
       return LispOverIpv4::No_Mapping;
     }
   else if (destMapEntry->IsNegative ())

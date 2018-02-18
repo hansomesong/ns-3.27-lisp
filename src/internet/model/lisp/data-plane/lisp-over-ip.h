@@ -56,6 +56,8 @@ class LispMappingSocket;
 class LispOverIp : public Object
 {
 public:
+	// Define the callback to be invoked when cache miss event occurs
+	typedef Callback<void, Address> CacheMissCallback;
 
   static const uint8_t PROT_NUMBER; //!< protocol number (0x)
   static const uint16_t LISP_DATA_PORT; //!< LISP data operations port
@@ -362,6 +364,11 @@ public:
    */
   void Print (std::ostream &os) const;
 
+  void SetCacheMissCallback (CacheMissCallback cb);
+
+  void CacheMissHandler (Address addr);
+
+
 
 
 
@@ -388,6 +395,9 @@ private:
   Ptr<Socket> m_lispSocket; //!< the socket owned by the data plane.
   Address m_lispAddress; //!< the "address" of the data plane (to connect to the socket)
   Ptr<Node> m_node; //!< the node
+
+  CacheMissCallback m_cacheMissCb;
+
 
 };
 

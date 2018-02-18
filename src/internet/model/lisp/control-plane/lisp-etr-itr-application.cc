@@ -575,6 +575,19 @@ void LispEtrItrApplication::SendMapRequest(Ptr<MapRequestMsg> mapReqMsg){
 	Send(packetMapReqMsg);
 }
 
+void LispEtrItrApplication::SendMapRequest2(Address eidPrefix){
+	//TODO: whehter here 64 bytes here is good...
+	Ptr<MapRequestMsg> mapReqMsg = GenerateMapRequest (Create<EndpointId> (eidPrefix, Ipv4Mask ("/32")));
+	uint8_t bufMapReq[64];
+	mapReqMsg->Serialize(bufMapReq);
+	Ptr<Packet> packetMapReqMsg;
+	packetMapReqMsg = Create<Packet>(bufMapReq, 64);
+	MapResolver::ConnectToPeerAddress(
+			m_mapResolverRlocs.front()->GetRlocAddress(),
+			LispOverIp::LISP_SIG_PORT, m_socket);
+	Send(packetMapReqMsg);
+}
+
 void LispEtrItrApplication::HandleMapSockRead(Ptr<Socket> lispMappingSocket) {
 	NS_LOG_FUNCTION(this);
 	Ptr<Packet> packet;

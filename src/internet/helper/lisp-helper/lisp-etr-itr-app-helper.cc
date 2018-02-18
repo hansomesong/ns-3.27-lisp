@@ -92,6 +92,18 @@ Ptr<Application> LispEtrItrAppHelper::InstallPriv (Ptr<Node> node) const
   lisp->GetMapTablesV6()->SetxTRApp(app);
   app->SetMapServerAddresses (m_mapServerAddresses);
   node->AddApplication (app);
+
+  /**
+   * Q.P SONG, 2018-02-18, Update
+   * To make the simulator more flexible, we intent to use ns-3 callback mechanism to implement the communication
+   * between LISP data plane and control plane.
+   * We start from the callback for cache miss event processing. A callback type attribute is added to LispOverIp.
+   * This callback variable should be associated with Lisp xTR applicaton's map request sending procedure within
+   * the current helper class.
+   * The reason why we have not done this in lisp helper, because MR/MS has also lispOverIp object, they don't have
+   * xTR application.
+   */
+  lisp->SetCacheMissCallback(MakeCallback(&LispEtrItrApplication::SendMapRequest2, app));
   return app;
 }
 
