@@ -104,6 +104,7 @@ Ptr<Application> LispEtrItrAppHelper::InstallPriv (Ptr<Node> node) const
    * xTR application.
    */
   lisp->SetCacheMissCallback(MakeCallback(&LispEtrItrApplication::SendMapRequest2, app));
+  lisp->SetDatabaseUpdateCallback(MakeCallback(&LispEtrItrApplication::SendOneMapRegister, app));
   return app;
 }
 

@@ -59,6 +59,9 @@ public:
 	// Define the callback to be invoked when cache miss event occurs
 	typedef Callback<void, Address> CacheMissCallback;
 
+	// Define the callback to be invoked when cache miss event occurs
+	typedef Callback<void, Ptr<MapEntry>> DatabaseUpdateCallback;
+
   static const uint8_t PROT_NUMBER; //!< protocol number (0x)
   static const uint16_t LISP_DATA_PORT; //!< LISP data operations port
   static const uint16_t LISP_SIG_PORT; //!< LISP control operations port
@@ -366,7 +369,24 @@ public:
 
   void SetCacheMissCallback (CacheMissCallback cb);
 
+  void SetDatabaseUpdateCallback (DatabaseUpdateCallback cb);
+
   void CacheMissHandler (Address addr);
+
+
+  /**
+   * \brief Proceed the event in which LISP database has update. xTR should send map register message.
+   * \param mapEntry: the EID-RLOC mapping that has update
+   */
+  void DatabaseUpdateHandler(Ptr<MapEntry> mapEntry);
+
+  void InsertMapEntry2Cache(Ptr<EndpointId> eidPrefix, Ptr<MapEntry> mapEntry);
+
+  void InsertMapEntry2Database(Ptr<EndpointId> eidPrefix, Ptr<MapEntry> mapEntry);
+
+  void InsertKnownRloc(Address rlocAddr);
+
+
 
 
 
@@ -397,6 +417,8 @@ private:
   Ptr<Node> m_node; //!< the node
 
   CacheMissCallback m_cacheMissCb;
+  DatabaseUpdateCallback m_databaseUpdateCb;
+
 
 
 };

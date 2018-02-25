@@ -66,9 +66,15 @@ public:
   std::list<Ptr<MapRequestMsg>> GetMapRequestMsgList();
 
   /**
-   * \brief Send a packet
+   * \brief Send a map register message for every map-entry in LISP database
    */
   void SendMapRegisters(void);
+
+  /**
+   * \brief Send a map register message for a given mapEntry
+   */
+  void SendOneMapRegister(Ptr<MapEntry> mapEntry);
+
 
   /**
    * \brief send SMR(i.e. Map Request Message with S bit set as 1) to all other xTRs

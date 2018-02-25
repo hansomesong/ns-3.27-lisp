@@ -227,31 +227,32 @@ void LispEtrItrApplication::SendMapRegisters(void) {
 	for (std::list<Ptr<MapEntry> >::const_iterator it = mapEntries.begin();
 			it != mapEntries.end(); ++it) {
 		// variable it here is a pointer of pointer => *it is actually another smart pointer.
-		Ptr<MapRegisterMsg> msg = LispEtrItrApplication::GenerateMapRegister(
-				*it);
-		/**
-		 * Calculating the bytes held by Map-Register Message...
-		 * BUF_SIZE = 16+AuthDataLen+16+12*LocatorCount
-		 */
-		uint8_t BUF_SIZE = 16 + msg->GetAuthDataLen() + 16
-				+ 12 * msg->GetRecord()->GetLocatorCount();
-		uint8_t *buf = new uint8_t[BUF_SIZE];
-		//std::memset(buf, 0, sizeof(buf));
-		msg->Serialize(buf);
-		MapResolver::ConnectToPeerAddress(m_mapServerAddress.front(),
-				LispOverIp::LISP_SIG_PORT, m_socket);
-		Ptr<Packet> p = Create<Packet>(buf, BUF_SIZE);
-		m_socket->Send(p);
-		NS_LOG_DEBUG(
-				"Map-Register message sent to "<<Ipv4Address::ConvertFrom(m_mapServerAddress.front()));
+		SendOneMapRegister(*it);
 	}
+}
 
+void LispEtrItrApplication::SendOneMapRegister(Ptr<MapEntry> mapEntry)
+{
+	NS_LOG_FUNCTION(this<<mapEntry);
+	Ptr<MapRegisterMsg> msg = GenerateMapRegister(mapEntry);
+	/**
+	 * Calculating the bytes held by Map-Register Message...
+	 * BUF_SIZE = 16+AuthDataLen+16+12*LocatorCount
+	 */
+	uint8_t BUF_SIZE = 16 + msg->GetAuthDataLen() + 16
+			+ 12 * msg->GetRecord()->GetLocatorCount();
+	uint8_t *buf = new uint8_t[BUF_SIZE];
+	//std::memset(buf, 0, sizeof(buf));
+	msg->Serialize(buf);
+	Ptr<Packet> p = Create<Packet>(buf, BUF_SIZE);
+
+	// Connect the m_socket to map server and sent the map register message.
+	MapResolver::ConnectToPeerAddress(m_mapServerAddress.front(),
+			LispOverIp::LISP_SIG_PORT, m_socket);
+	m_socket->Send(p);
+	NS_LOG_DEBUG(
+					"Map-Register message sent to "<<Ipv4Address::ConvertFrom(m_mapServerAddress.front()));
 	++m_sent;
-
-	/*if (m_sent < m_count)
-	 {
-	 ScheduleTransmit (m_interval);
-	 }*/
 }
 
 void LispEtrItrApplication::SendToLisp(Ptr<Packet> packet) {
@@ -576,7 +577,12 @@ void LispEtrItrApplication::SendMapRequest(Ptr<MapRequestMsg> mapReqMsg){
 }
 
 void LispEtrItrApplication::SendMapRequest2(Address eidPrefix){
-	//TODO: whehter here 64 bytes here is good...
+	/**
+	 * TODO: whehter here 64 bytes here is good...
+	 * The use of const and & in parameter list should be taken into account.
+	 * The use of & can avoid the unuseful copy of the parameter
+	 * The use of const ban the modification of the input parameter within the body of function
+	 */
 	Ptr<MapRequestMsg> mapReqMsg = GenerateMapRequest (Create<EndpointId> (eidPrefix, Ipv4Mask ("/32")));
 	uint8_t bufMapReq[64];
 	mapReqMsg->Serialize(bufMapReq);

@@ -60,203 +60,202 @@
 namespace ns3
 {
 
-  NS_LOG_COMPONENT_DEFINE("DhcpClient");
-  NS_OBJECT_ENSURE_REGISTERED(DhcpClient);
+	NS_LOG_COMPONENT_DEFINE("DhcpClient");
+	NS_OBJECT_ENSURE_REGISTERED(DhcpClient);
 
-  TypeId
-  DhcpClient::GetTypeId (void)
-  {
-    static TypeId tid = TypeId ("ns3::DhcpClient")
-    		.SetParent<Application> ()
-				.AddConstructor<DhcpClient> ()
-				.SetGroupName ("Internet-Apps")
-				.AddAttribute (
-	    "NetDevice", "Index of netdevice of the node for DHCP",
-	    UintegerValue (0), MakeUintegerAccessor (&DhcpClient::m_device),
-	    MakeUintegerChecker<uint32_t> ())
-			.AddAttribute (
-					"RTRS",
-					"Time for retransmission of Discover message",
-					TimeValue (Seconds (100)),
-					MakeTimeAccessor (&DhcpClient::m_rtrs),
-					MakeTimeChecker ())
-			.AddAttribute (
-					"Collect",
-					"Time for which offer collection starts",
-					TimeValue (Seconds (0.9)),
-					MakeTimeAccessor (&DhcpClient::m_collect), MakeTimeChecker ())
-			.AddAttribute (
-					"ReRequest",
-					"Time after which request will be resent to next server",
-					TimeValue (Seconds (10)),
-					MakeTimeAccessor (&DhcpClient::m_nextoffer), MakeTimeChecker ())
-			.AddAttribute (
-					"Transactions",
-					"The possible value of transaction numbers ",
-					StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=1000000.0]"),
-					MakePointerAccessor (&DhcpClient::m_ran),
-					MakePointerChecker<RandomVariableStream> ())
-			.AddTraceSource (
-					"NewLease",
-					"Get a NewLease",
-					MakeTraceSourceAccessor (&DhcpClient::m_newLease),
-					"ns3::Ipv4Address::TracedCallback")
-			.AddTraceSource (
-					"Expiry",
-					"A lease expires",
-					MakeTraceSourceAccessor (&DhcpClient::m_expiry),
-					"ns3::Ipv4Address::TracedCallback");
-    return tid;
-  }
+	TypeId
+	DhcpClient::GetTypeId (void)
+	{
+		static TypeId tid =
+				TypeId ("ns3::DhcpClient").SetParent<Application> ().AddConstructor<
+						DhcpClient> ().SetGroupName ("Internet-Apps").AddAttribute (
+						"NetDevice", "Index of netdevice of the node for DHCP",
+						UintegerValue (0), MakeUintegerAccessor (&DhcpClient::m_device),
+						MakeUintegerChecker<uint32_t> ()).AddAttribute (
+						"RTRS", "Time for retransmission of Discover message",
+						TimeValue (Seconds (100)), MakeTimeAccessor (&DhcpClient::m_rtrs),
+						MakeTimeChecker ()).AddAttribute (
+						"Collect", "Time for which offer collection starts",
+						TimeValue (Seconds (0.9)),
+						MakeTimeAccessor (&DhcpClient::m_collect), MakeTimeChecker ()).AddAttribute (
+						"ReRequest",
+						"Time after which request will be resent to next server",
+						TimeValue (Seconds (10)),
+						MakeTimeAccessor (&DhcpClient::m_nextoffer), MakeTimeChecker ()).AddAttribute (
+						"Transactions", "The possible value of transaction numbers ",
+						StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=1000000.0]"),
+						MakePointerAccessor (&DhcpClient::m_ran),
+						MakePointerChecker<RandomVariableStream> ()).AddTraceSource (
+						"NewLease", "Get a NewLease",
+						MakeTraceSourceAccessor (&DhcpClient::m_newLease),
+						"ns3::Ipv4Address::TracedCallback").AddTraceSource (
+						"Expiry", "A lease expires",
+						MakeTraceSourceAccessor (&DhcpClient::m_expiry),
+						"ns3::Ipv4Address::TracedCallback");
+		return tid;
+	}
 
-  DhcpClient::DhcpClient () :
-      m_server (Ipv4Address::GetAny ())
-  {
-    NS_LOG_FUNCTION_NOARGS ();
-    m_socket = 0;
-    m_lispMappingSocket = 0;
-    m_refreshEvent = EventId ();
-    m_requestEvent = EventId ();
-    m_discoverEvent = EventId ();
-    m_rebindEvent = EventId ();
-    m_nextOfferEvent = EventId ();
-    m_timeout = EventId ();
-    m_trigLisp = false;
-    m_remoteAddress = Ipv4Address ("255.255.255.255");
-    m_myAddress = Ipv4Address ("0.0.0.0");
-    m_gateway = Ipv4Address ("0.0.0.0");
+	DhcpClient::DhcpClient () :
+			m_server (Ipv4Address::GetAny ())
+	{
+		NS_LOG_FUNCTION_NOARGS ();
+		m_socket = 0;
+		m_lispMappingSocket = 0;
+		m_refreshEvent = EventId ();
+		m_requestEvent = EventId ();
+		m_discoverEvent = EventId ();
+		m_rebindEvent = EventId ();
+		m_nextOfferEvent = EventId ();
+		m_timeout = EventId ();
+		m_trigLisp = false;
+		m_remoteAddress = Ipv4Address ("255.255.255.255");
+		m_myAddress = Ipv4Address ("0.0.0.0");
+		m_gateway = Ipv4Address ("0.0.0.0");
 
-  }
+	}
 
-  DhcpClient::~DhcpClient ()
-  {
-    NS_LOG_FUNCTION_NOARGS ();
-  }
+	DhcpClient::~DhcpClient ()
+	{
+		NS_LOG_FUNCTION_NOARGS ();
+	}
 
-  Ipv4Address
-  DhcpClient::GetDhcpServer (void)
-  {
-    return m_server;
-  }
+	Ipv4Address
+	DhcpClient::GetDhcpServer (void)
+	{
+		return m_server;
+	}
 
-  void
-  DhcpClient::DoDispose (void)
-  {
-    NS_LOG_FUNCTION_NOARGS ();
-    Application::DoDispose ();
-  }
+	void
+	DhcpClient::DoDispose (void)
+	{
+		NS_LOG_FUNCTION_NOARGS ();
+		Application::DoDispose ();
+	}
 
-  int64_t
-  DhcpClient::AssignStreams (int64_t stream)
-  {
-    NS_LOG_FUNCTION(this << stream);
-    m_ran->SetStream (stream);
-    return 1;
-  }
+	int64_t
+	DhcpClient::AssignStreams (int64_t stream)
+	{
+		NS_LOG_FUNCTION(this << stream);
+		m_ran->SetStream (stream);
+		return 1;
+	}
 
-  void
-  DhcpClient::CreateSocket ()
-  {
-    NS_LOG_FUNCTION(this);
-    NS_LOG_DEBUG("DHCP client tries to create Ipv4RawSocket...");
-    if (m_socket != 0)
-      {
-	NS_LOG_WARN("DHCP client has already a Ipv4RawSocket!");
-      }
-    if (m_socket == 0)
-      {
-	TypeId tid = TypeId::LookupByName ("ns3::Ipv4RawSocketFactory");
-	m_socket = DynamicCast<Ipv4RawSocketImpl> (
-	    Socket::CreateSocket (GetNode (), tid));
-	m_socket->SetProtocol (UdpL4Protocol::PROT_NUMBER);
-	m_socket->SetAllowBroadcast (true);
-	m_socket->Bind ();
-	m_socket->BindToNetDevice (GetNode ()->GetDevice (m_device));
-      }
-    // Since in LinkStateChange handler, RecvCallback has been removed...
-    // Thus, here in anycase, we should add this callback...
-    m_socket->SetRecvCallback (MakeCallback (&DhcpClient::NetHandler, this));
+	void
+	DhcpClient::CreateSocket ()
+	{
+		NS_LOG_FUNCTION(this);
+		NS_LOG_DEBUG("DHCP client tries to create Ipv4RawSocket...");
+		if (m_socket != 0)
+			{
+				NS_LOG_WARN("DHCP client has already a Ipv4RawSocket!");
+			}
+		if (m_socket == 0)
+			{
+				TypeId tid = TypeId::LookupByName ("ns3::Ipv4RawSocketFactory");
+				m_socket = DynamicCast<Ipv4RawSocketImpl> (
+						Socket::CreateSocket (GetNode (), tid));
+				m_socket->SetProtocol (UdpL4Protocol::PROT_NUMBER);
+				m_socket->SetAllowBroadcast (true);
+				m_socket->Bind ();
+				m_socket->BindToNetDevice (GetNode ()->GetDevice (m_device));
+			}
+		// Since in LinkStateChange handler, RecvCallback has been removed...
+		// Thus, here in anycase, we should add this callback...
+		m_socket->SetRecvCallback (MakeCallback (&DhcpClient::NetHandler, this));
 
-    Ptr<LispOverIp> lisp = GetNode ()->GetObject<LispOverIp> ();
-    if (m_lispMappingSocket != 0)
-      {
-	NS_LOG_WARN("DHCP client has already a Lisp Mapping Socket!");
-      }
-    else if (lisp != 0 and m_lispMappingSocket == 0)
-      {
-	NS_LOG_DEBUG(
-	    "DHCP client is trying to connect to data plan (actually LispOverIpv4 object).");
-	// #2: create lispMappingSocket object, which is declared as Socket
-	TypeId tid = TypeId::LookupByName ("ns3::LispMappingSocketFactory");
-	m_lispMappingSocket = Socket::CreateSocket (GetNode (), tid);
-	Ptr<LispOverIp> lisp = m_lispMappingSocket->GetNode ()->GetObject<
-	    LispOverIp> ();
-	m_lispProtoAddress = lisp->GetLispMapSockAddress ();
-	m_lispMappingSocket->Bind ();
-	m_lispMappingSocket->Connect (m_lispProtoAddress);
-	//It is very possible that m_lispProtoAddress is a special kind of address
-	//which is not an Ipv4 neither Ipv6 address.
-	NS_LOG_DEBUG("DHCP client has connected to " << m_lispProtoAddress);
-	// Since we haven't touched lispMappingSocket's callback, here we just
-	// add callback when need to create a mapping socket...
-	m_lispMappingSocket->SetRecvCallback (
-	    MakeCallback (&DhcpClient::HandleMapSockRead, this));
-      }
-    NS_LOG_DEBUG("DHCP client finishes the socket create process");
-  }
+		Ptr<LispOverIp> lisp = GetNode ()->GetObject<LispOverIp> ();
+		if (m_lispMappingSocket != 0)
+			{
+				NS_LOG_WARN("DHCP client has already a Lisp Mapping Socket!");
+			}
+		else if (lisp != 0 and m_lispMappingSocket == 0)
+			{
+				NS_LOG_DEBUG(
+						"DHCP client is trying to connect to data plan (actually LispOverIpv4 object).");
+				// #2: create lispMappingSocket object, which is declared as Socket
+				TypeId tid = TypeId::LookupByName ("ns3::LispMappingSocketFactory");
+				m_lispMappingSocket = Socket::CreateSocket (GetNode (), tid);
+				Ptr<LispOverIp> lisp = m_lispMappingSocket->GetNode ()->GetObject<
+						LispOverIp> ();
+				m_lispProtoAddress = lisp->GetLispMapSockAddress ();
+				m_lispMappingSocket->Bind ();
+				m_lispMappingSocket->Connect (m_lispProtoAddress);
+				//It is very possible that m_lispProtoAddress is a special kind of address
+				//which is not an Ipv4 neither Ipv6 address.
+				NS_LOG_DEBUG("DHCP client has connected to " << m_lispProtoAddress);
+				// Since we haven't touched lispMappingSocket's callback, here we just
+				// add callback when need to create a mapping socket...
+				m_lispMappingSocket->SetRecvCallback (
+						MakeCallback (&DhcpClient::HandleMapSockRead, this));
+			}
+		NS_LOG_DEBUG("DHCP client finishes the socket create process");
+	}
 
-  void
-  DhcpClient::HandleMapSockRead (Ptr<Socket> lispMappingSocket)
-  {
-    NS_LOG_FUNCTION(this);
-    Ptr<Packet> packet;
-    Address from;
-    while ((packet = lispMappingSocket->RecvFrom (from)))
-      {
-	NS_LOG_DEBUG("Receive messages from lisp. They are dedicated to xTR apps. DHCP has nothing to do.");
-      }
-  }
+	void
+	DhcpClient::HandleMapSockRead (Ptr<Socket> lispMappingSocket)
+	{
+		NS_LOG_FUNCTION(this);
+		Ptr<Packet> packet;
+		Address from;
+		while ((packet = lispMappingSocket->RecvFrom (from)))
+			{
+				NS_LOG_DEBUG(
+						"Receive messages from lisp. They are dedicated to xTR apps. DHCP has nothing to do.");
+			}
+	}
 
-  void
-  DhcpClient::CloseSocket ()
-  {
-    m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
-    m_socket->Close ();
-    Ptr<LispOverIp> lisp = GetNode ()->GetObject<LispOverIp> ();
-    if (lisp != 0)
-      {
-	m_lispMappingSocket->SetRecvCallback (
-	    MakeNullCallback<void, Ptr<Socket> > ());
-	m_lispMappingSocket->Close ();
-      }
-  }
+	void
+	DhcpClient::CloseSocket ()
+	{
+		m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
+		m_socket->Close ();
+		Ptr<LispOverIp> lisp = GetNode ()->GetObject<LispOverIp> ();
+		if (lisp != 0)
+			{
+				m_lispMappingSocket->SetRecvCallback (
+						MakeNullCallback<void, Ptr<Socket> > ());
+				m_lispMappingSocket->Close ();
+			}
+	}
 
-  void
-  DhcpClient::StartApplication (void)
-  {
-    NS_LOG_FUNCTION_NOARGS ();
-    NS_LOG_DEBUG(
-	"At the start of DCHP client application, Wifi Net device's status: "<<GetNode ()->GetDevice (m_device)->IsLinkUp ());
-    InitializeAddress ();
-    CreateSocket ();
-    // For example, Wifi Adhoc mode has no link state change(I think so...)
-    // That's why we have to send call Boot() here to send DHCP discover...
+	void
+	DhcpClient::StartApplication (void)
+	{
+		NS_LOG_FUNCTION_NOARGS ();
+		NS_LOG_DEBUG(
+				"At the start of DCHP client application, Wifi Net device's status: "<<GetNode ()->GetDevice (m_device)->IsLinkUp ());
+		InitializeAddress ();
+		CreateSocket ();
+		/**
+		 * Update,02-22-2018,Yue
+		 * Associate callback with corresponding LISP methods
+		 */
+	  Ptr<LispOverIp> lisp = GetNode()->GetObject<LispOverIp> ();
+	  if(lisp)
+	  	{
+	  		NS_LOG_DEBUG("LISP compatible DHCP client. Associate callbacks...");
+	  	  SetUpdateRlocCallback(MakeCallback(&LispOverIp::InsertKnownRloc, lisp));
+	  	  SetAlloIpCallback(MakeCallback(&LispOverIp::DatabaseUpdateHandler, lisp));
+	  	}
+
+		// For example, Wifi Adhoc mode has no link state change(I think so...)
+		// That's why we have to send call Boot() here to send DHCP discover...
 //    Boot ();
-    /**
-     * Append a Callback to the chain. I wonder what the chain refers to.
-     * It seems a container which can hold more than one elements.
-     * It's also logical for a net device to trigger more several callbacks if one event
-     * triggers. Thus, I think, here we should not add a Link change callback function
-     * each time DHCP client is started. Because link state change handler will start DHCP
-     * client which add link chagne callback function. Hence, I think, it is better to
-     * add this hanlder just in DHCP's constructor.
-     */
-    GetNode ()->GetDevice (m_device)->AddLinkChangeCallback (
-	MakeCallback (&DhcpClient::LinkStateHandler, this));
-    NS_LOG_DEBUG(
-	"Add a Link Change Callback to net device with index: "<<unsigned(m_device));
-    Boot();
-  }
+		/**
+		 * Append a Callback to the chain. I wonder what the chain refers to.
+		 * It seems a container which can hold more than one elements.
+		 * It's also logical for a net device to trigger more several callbacks if one event
+		 * triggers. Thus, I think, here we should not add a Link change callback function
+		 * each time DHCP client is started. Because link state change handler will start DHCP
+		 * client which add link chagne callback function. Hence, I think, it is better to
+		 * add this hanlder just in DHCP's constructor.
+		 */
+		GetNode ()->GetDevice (m_device)->AddLinkChangeCallback (
+				MakeCallback (&DhcpClient::LinkStateHandler, this));
+		NS_LOG_DEBUG(
+				"Add a Link Change Callback to net device with index: "<<unsigned(m_device));
+		Boot ();
+	}
 
 	void
 	DhcpClient::InitializeAddress ()
@@ -495,7 +494,8 @@ namespace ns3
 			{
 				Simulator::Remove (m_discoverEvent);
 				m_offered = true;
-				NS_LOG_INFO("Reception of DHCP offer from DHCP server. Remove m_discoverEvent event and schedule a new event!");
+				NS_LOG_INFO(
+						"Reception of DHCP offer from DHCP server. Remove m_discoverEvent event and schedule a new event!");
 				Simulator::Schedule (m_collect, &DhcpClient::Select, this);
 			}
 	}
@@ -524,80 +524,80 @@ namespace ns3
 				"At time " << Simulator::Now ().GetSeconds () << "s DHCP client sent DHCP REQUEST to DHCP Server");
 	}
 
-  void
-  DhcpClient::Request (void)
-  {
-    NS_LOG_FUNCTION_NOARGS ();
-    DhcpHeader dhcpHeader;
-    UdpHeader udpHeader;
-    Ptr<Packet> packet;
-    if (m_state != REFRESH_LEASE)
-      {
-	packet = Create<Packet> ();
+	void
+	DhcpClient::Request (void)
+	{
+		NS_LOG_FUNCTION_NOARGS ();
+		DhcpHeader dhcpHeader;
+		UdpHeader udpHeader;
+		Ptr<Packet> packet;
+		if (m_state != REFRESH_LEASE)
+			{
+				packet = Create<Packet> ();
 
-	dhcpHeader.ResetOpt ();
-	dhcpHeader.SetType (DhcpHeader::DHCPREQ);
-	dhcpHeader.SetTime ();
-	dhcpHeader.SetTran (m_tran);
-	dhcpHeader.SetReq (m_offeredAddress);
-	dhcpHeader.SetChaddr (GetNode ()->GetDevice (m_device)->GetAddress ());
-	packet->AddHeader (dhcpHeader);
+				dhcpHeader.ResetOpt ();
+				dhcpHeader.SetType (DhcpHeader::DHCPREQ);
+				dhcpHeader.SetTime ();
+				dhcpHeader.SetTran (m_tran);
+				dhcpHeader.SetReq (m_offeredAddress);
+				dhcpHeader.SetChaddr (GetNode ()->GetDevice (m_device)->GetAddress ());
+				packet->AddHeader (dhcpHeader);
 
-	udpHeader.SetDestinationPort (DhcpServer::PORT);
-	udpHeader.SetSourcePort (PORT);
-	if (Node::ChecksumEnabled ())
-	  {
-	    udpHeader.EnableChecksums ();
-	    udpHeader.InitializeChecksum (m_myAddress,
-					  Ipv4Address ("255.255.255.255"),
-					  UdpL4Protocol::PROT_NUMBER);
-	  }
-	packet->AddHeader (udpHeader);
+				udpHeader.SetDestinationPort (DhcpServer::PORT);
+				udpHeader.SetSourcePort (PORT);
+				if (Node::ChecksumEnabled ())
+					{
+						udpHeader.EnableChecksums ();
+						udpHeader.InitializeChecksum (m_myAddress,
+																					Ipv4Address ("255.255.255.255"),
+																					UdpL4Protocol::PROT_NUMBER);
+					}
+				packet->AddHeader (udpHeader);
 
-	m_socket->SendTo (packet, 0,
-			  InetSocketAddress (Ipv4Address ("255.255.255.255")));
-	m_state = WAIT_ACK;
-	m_nextOfferEvent = Simulator::Schedule (m_nextoffer,
-						&DhcpClient::Select, this);
-      }
-    else
-      {
-	//CreateSocket ();
-	uint32_t addr = m_myAddress.Get ();
-	packet = Create<Packet> ((uint8_t*) &addr, sizeof(addr));
+				m_socket->SendTo (packet, 0,
+													InetSocketAddress (Ipv4Address ("255.255.255.255")));
+				m_state = WAIT_ACK;
+				m_nextOfferEvent = Simulator::Schedule (m_nextoffer,
+																								&DhcpClient::Select, this);
+			}
+		else
+			{
+				//CreateSocket ();
+				uint32_t addr = m_myAddress.Get ();
+				packet = Create<Packet> ((uint8_t*) &addr, sizeof(addr));
 
-	dhcpHeader.ResetOpt ();
-	m_tran = (uint32_t) (m_ran->GetValue ());
-	dhcpHeader.SetTran (m_tran);
-	dhcpHeader.SetTime ();
-	dhcpHeader.SetType (DhcpHeader::DHCPREQ);
-	dhcpHeader.SetReq (m_myAddress);
-	m_offeredAddress = m_myAddress;
-	dhcpHeader.SetChaddr (GetNode ()->GetDevice (m_device)->GetAddress ());
-	packet->AddHeader (dhcpHeader);
+				dhcpHeader.ResetOpt ();
+				m_tran = (uint32_t) (m_ran->GetValue ());
+				dhcpHeader.SetTran (m_tran);
+				dhcpHeader.SetTime ();
+				dhcpHeader.SetType (DhcpHeader::DHCPREQ);
+				dhcpHeader.SetReq (m_myAddress);
+				m_offeredAddress = m_myAddress;
+				dhcpHeader.SetChaddr (GetNode ()->GetDevice (m_device)->GetAddress ());
+				packet->AddHeader (dhcpHeader);
 
-	udpHeader.SetDestinationPort (DhcpServer::PORT);
-	udpHeader.SetSourcePort (PORT);
-	if (Node::ChecksumEnabled ())
-	  {
-	    udpHeader.EnableChecksums ();
-	    udpHeader.InitializeChecksum (m_myAddress, m_remoteAddress,
-					  UdpL4Protocol::PROT_NUMBER);
-	  }
-	packet->AddHeader (udpHeader);
+				udpHeader.SetDestinationPort (DhcpServer::PORT);
+				udpHeader.SetSourcePort (PORT);
+				if (Node::ChecksumEnabled ())
+					{
+						udpHeader.EnableChecksums ();
+						udpHeader.InitializeChecksum (m_myAddress, m_remoteAddress,
+																					UdpL4Protocol::PROT_NUMBER);
+					}
+				packet->AddHeader (udpHeader);
 
-	if ((m_socket->SendTo (packet, 0, InetSocketAddress (m_remoteAddress)))
-	    >= 0)
-	  {
-	    NS_LOG_INFO("DHCP REQUEST sent");
-	  }
-	else
-	  {
-	    NS_LOG_INFO("Error while sending DHCP REQ to " << m_remoteAddress);
-	  }
-	m_state = WAIT_ACK;
-      }
-  }
+				if ((m_socket->SendTo (packet, 0, InetSocketAddress (m_remoteAddress)))
+						>= 0)
+					{
+						NS_LOG_INFO("DHCP REQUEST sent");
+					}
+				else
+					{
+						NS_LOG_INFO("Error while sending DHCP REQ to " << m_remoteAddress);
+					}
+				m_state = WAIT_ACK;
+			}
+	}
 
 	void
 	DhcpClient::AcceptAck (DhcpHeader header, Address from)
@@ -703,7 +703,10 @@ namespace ns3
 			{
 				NS_LOG_DEBUG(
 						"A different assigned IP address! LISP processing should be called...");
-				DhcpClient::LispDataBaseManipulation (DhcpClient::GetEid ());
+				//To test callback, comment this invocation.
+				//DhcpClient::LispDataBaseManipulation (DhcpClient::GetEid ());
+
+				AcceptAckLispHandler(DhcpClient::GetEid ());
 			}
 		m_offerList.clear ();
 		m_refreshEvent = Simulator::Schedule (m_renew, &DhcpClient::Request, this);
@@ -737,89 +740,89 @@ namespace ns3
 			}
 	}
 
-  bool
-  DhcpClient::isGateWayExist (Ipv4Address m_gateway)
-  {
-    bool result = false;
-    Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
-    Ipv4StaticRoutingHelper ipv4RoutingHelper;
-    Ptr<Ipv4StaticRouting> staticRouting = ipv4RoutingHelper.GetStaticRouting (
-	ipv4);
-    int32_t ifIndex = ipv4->GetInterfaceForDevice (
-	GetNode ()->GetDevice (m_device));
-    for (uint32_t i = 0; i < staticRouting->GetNRoutes (); i++)
-      {
-	if (staticRouting->GetRoute (i).GetGateway () == m_gateway
-	    && staticRouting->GetRoute (i).GetInterface () == (uint32_t) ifIndex
-	    && staticRouting->GetRoute (i).GetDest ()
-		== Ipv4Address ("0.0.0.0"))
-	  {
-	    result = true;
-	    break;
-	  }
-      }
-    return result;
-  }
+	bool
+	DhcpClient::isGateWayExist (Ipv4Address m_gateway)
+	{
+		bool result = false;
+		Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
+		Ipv4StaticRoutingHelper ipv4RoutingHelper;
+		Ptr<Ipv4StaticRouting> staticRouting = ipv4RoutingHelper.GetStaticRouting (
+				ipv4);
+		int32_t ifIndex = ipv4->GetInterfaceForDevice (
+				GetNode ()->GetDevice (m_device));
+		for (uint32_t i = 0; i < staticRouting->GetNRoutes (); i++)
+			{
+				if (staticRouting->GetRoute (i).GetGateway () == m_gateway
+						&& staticRouting->GetRoute (i).GetInterface () == (uint32_t) ifIndex
+						&& staticRouting->GetRoute (i).GetDest ()
+								== Ipv4Address ("0.0.0.0"))
+					{
+						result = true;
+						break;
+					}
+			}
+		return result;
+	}
 
-  bool
-  DhcpClient::IsLispCompatible ()
-  {
-    return GetNode ()->GetObject<LispOverIpv4> () != 0;
-  }
+	bool
+	DhcpClient::IsLispCompatible ()
+	{
+		return GetNode ()->GetObject<LispOverIpv4> () != 0;
+	}
 
-  bool
-  DhcpClient::IsLispDataBasePresent ()
-  {
-    bool result = false;
-    if (DhcpClient::IsLispCompatible ())
-      {
-	result =
-	    ((GetNode ()->GetObject<LispOverIpv4> ())->GetMapTablesV4 ()->GetNMapEntriesLispDataBase ()
-		!= 0);
-      }
-    return result;
-  }
+	bool
+	DhcpClient::IsLispDataBasePresent ()
+	{
+		bool result = false;
+		if (DhcpClient::IsLispCompatible ())
+			{
+				result =
+						((GetNode ()->GetObject<LispOverIpv4> ())->GetMapTablesV4 ()->GetNMapEntriesLispDataBase ()
+								!= 0);
+			}
+		return result;
+	}
 
-  uint32_t
-  DhcpClient::GetIfTunIndex ()
-  {
-    NS_LOG_FUNCTION(this);
-    Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
-    uint32_t ifTunIndex = 0;
-    uint32_t tunDeviceIndex = 1;
-    /**
-     * Ignore the device with index 0 => Loopback device
-     * Iterate Net device index and compare its type id name to find virtual net device index.
-     * Then get @IP address
-     */
-    for (tunDeviceIndex = 1; tunDeviceIndex < GetNode ()->GetNDevices ();
-	tunDeviceIndex++)
-      {
-	Ptr<NetDevice> curDev = GetNode ()->GetDevice (tunDeviceIndex);
-	// Be careful with compare() method.
-	if (curDev->GetInstanceTypeId ().GetName () == "ns3::VirtualNetDevice")
-	  {
-	    NS_LOG_DEBUG("TUN device index: "<<unsigned(tunDeviceIndex));
-	    NS_LOG_DEBUG(
-		"Device type: "<<curDev->GetInstanceTypeId ().GetName ());
-	    ifTunIndex = ipv4->GetInterfaceForDevice (
-		GetNode ()->GetDevice (tunDeviceIndex));
-	    NS_LOG_DEBUG("TUN interface Index: "<< unsigned(ifTunIndex));
-	    /**
-	     * An intutive difference between Ipv4InterfaceAddress and Ipv4Address is:
-	     * the former container Ipv4Address along with Ipv4Maks, broacast, etc...
-	     * The information we can see from "ifconfig eth0"
-	     * TODO: Attention we assume that one LISP-MN just have one @IP!
-	     * It is trival to extend to support several @IP on TUN, which is not necessary
-	     * in this case!
-	     */
-	    //TODO: How to process the case where more than one TUN device on a node?
-	    break;
-	  }
-      }
-    //If return 0, means no TUN device
-    return ifTunIndex;
-  }
+	uint32_t
+	DhcpClient::GetIfTunIndex ()
+	{
+		NS_LOG_FUNCTION(this);
+		Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
+		uint32_t ifTunIndex = 0;
+		uint32_t tunDeviceIndex = 1;
+		/**
+		 * Ignore the device with index 0 => Loopback device
+		 * Iterate Net device index and compare its type id name to find virtual net device index.
+		 * Then get @IP address
+		 */
+		for (tunDeviceIndex = 1; tunDeviceIndex < GetNode ()->GetNDevices ();
+				tunDeviceIndex++)
+			{
+				Ptr<NetDevice> curDev = GetNode ()->GetDevice (tunDeviceIndex);
+				// Be careful with compare() method.
+				if (curDev->GetInstanceTypeId ().GetName () == "ns3::VirtualNetDevice")
+					{
+						NS_LOG_DEBUG("TUN device index: "<<unsigned(tunDeviceIndex));
+						NS_LOG_DEBUG(
+								"Device type: "<<curDev->GetInstanceTypeId ().GetName ());
+						ifTunIndex = ipv4->GetInterfaceForDevice (
+								GetNode ()->GetDevice (tunDeviceIndex));
+						NS_LOG_DEBUG("TUN interface Index: "<< unsigned(ifTunIndex));
+						/**
+						 * An intutive difference between Ipv4InterfaceAddress and Ipv4Address is:
+						 * the former container Ipv4Address along with Ipv4Maks, broacast, etc...
+						 * The information we can see from "ifconfig eth0"
+						 * TODO: Attention we assume that one LISP-MN just have one @IP!
+						 * It is trival to extend to support several @IP on TUN, which is not necessary
+						 * in this case!
+						 */
+						//TODO: How to process the case where more than one TUN device on a node?
+						break;
+					}
+			}
+		//If return 0, means no TUN device
+		return ifTunIndex;
+	}
 
 	Ptr<EndpointId>
 	DhcpClient::GetEid ()
@@ -843,118 +846,155 @@ namespace ns3
 		return eid;
 	}
 
-  void
-  DhcpClient::LispDataBaseManipulation (Ptr<EndpointId> eid)
-  {
-    /**
-     * Send Mapping socket control message to lispOverIpv4 object so that
-     * lisp database can (if exist) add or update new EID-RLOC map entry
-     *
-     * TODO: Another solution: given that InsertLocators method is MapTable is public,
-     * we can directly call related method to insert new EID-RLOC mapping into
-     * database. The current applied solution is more modular: we send message to lispOverIpv4
-     * and let the latter to manipulate the map tables.
-     */
-    //TODO:How if we use IP aliasing (secondary @IP on the Netdevice)?
-    Ptr<LispOverIpv4> lisp = GetNode ()->GetObject<LispOverIpv4> ();
-    Ptr<MappingSocketMsg> mapSockMsg = Create<MappingSocketMsg> ();
-    Ptr<Locators> locators = Create<LocatorsImpl> ();
-    /**
-     * Construt message content: one EID and one unique RLOC (but we can support a list of RLOC)
-     * 1) EID field in mapping socket message => Easy!
-     * 2) RLOC list, default priority and weight make it as 100.
-     * At last, remind that this message is not the lisp control plan message exchange between xTR
-     * It is the message used between lisp data plan and control plan.
-     * Here we use this between lisp data plan and DHCP
-     */
-    mapSockMsg->SetEndPoint (eid);
-    Ptr<RlocMetrics> rlocMetrics = Create<RlocMetrics> (100, 100, true);
-    rlocMetrics->SetMtu (1500);
-    rlocMetrics->SetIsLocalIf (true);
-    Ptr<Locator> locator = Create<Locator> (m_offeredAddress);
-    locator->SetRlocMetrics (rlocMetrics);
-    locators->InsertLocator (locator);
-    mapSockMsg->SetLocators (locators);
 
-    /**
-     * Construct message header
-     * Note:
-     * 1) unlike Java, an instruction like: MappingSocketMsgHeader mapSockHeader;
-     * is able to create an object. Afterwards, we can set attribute for this
-     * object. This will cause NullPointer in Java! However, in C++, it works!
-     * 2) For mapVersionning , we use value set by the
-     * MappingSocketMsgHeader constructor.
-     * TODO In MappingVersion mobility, maybe we should rethink how to set the
-     * mapping versionning.
-     * 3) In this case, maybe we don't need to care about MAP flags.
-     */
-    MappingSocketMsgHeader mapSockHeader;
-    mapSockHeader.SetMapAddresses (
-	(int) mapSockHeader.GetMapAddresses ()
-	    | static_cast<int> (LispMappingSocket::MAPA_RLOC));
-    // Question: why not consider LispMappingSocket::MAPA_EID, LispMappingSocket::MAPA_EIDMASK indicate implicitly the presence of EID?
-    mapSockHeader.SetMapAddresses (
-	(int) mapSockHeader.GetMapAddresses ()
-	    | static_cast<int> (LispMappingSocket::MAPA_EIDMASK));
+	void
+	DhcpClient::AcceptAckLispHandler(Ptr<EndpointId> eid)
+	{
+		//m_myAddress has already been confirmed.
+		//This is a local RLOC from LISP point of view
+		NS_LOG_FUNCTION(this<<eid<<&m_updateRlocCb);
+		m_updateRlocCb(static_cast<Address>(m_myAddress));
+		//TODO: Add one method to create MapEntry for EID-Local RLOC
+		Ptr<MapEntry> mapEntry = Create<MapEntryImpl> ();
+		Ptr<Locators> locators = Create<LocatorsImpl> ();
+		Ptr<RlocMetrics> rlocMetrics = Create<RlocMetrics> (100, 100, true);
+		rlocMetrics->SetMtu (1500);
+		rlocMetrics->SetIsLocalIf (true);
+		Ptr<Locator> locator = Create<Locator> (m_myAddress);
+		locator->SetRlocMetrics (rlocMetrics);
+		locators->InsertLocator (locator);
+		mapEntry->SetEidPrefix (eid);
+		mapEntry->setIsNegative (0);
+		mapEntry->SetLocators (locators);
+		m_allocationIpCb(mapEntry);
+	}
 
-    /**
-     *  This newly assigned RLOC-EID mapping should be inserted into lisp
-     *  into database (instead of cache). It seems that in Lionel's implementation.
-     *  No field in message header to indicate the message should be inserted into
-     *  database or cache? Maybe in the method of LispOverIpv4 processing this message
-     *  should explicitly to decide which database it should manipulate.
-     */
-    uint8_t buf[256];
-    mapSockMsg->Serialize (buf);
-    mapSockHeader.SetMapType (LispMappingSocket::MAPM_DATABASE_UPDATE);
-    Ptr<Packet> packet = Create<Packet> (buf, 256);
-    packet->AddHeader (mapSockHeader);
-    m_lispMappingSocket->Send (packet);
-    NS_LOG_DEBUG(
-	"Send newly assigned RLOC-EID to lispOverIpv4 so that LISP-MN's Database (not Cache) can be updated!");
-    NS_LOG_DEBUG(
-	"RLOCs sent by DHCP client: \n"<<mapSockMsg->GetLocators()->Print());
+	void
+	DhcpClient::LispDataBaseManipulation (Ptr<EndpointId> eid)
+	{
+		/**
+		 * Send Mapping socket control message to lispOverIpv4 object so that
+		 * lisp database can (if exist) add or update new EID-RLOC map entry
+		 *
+		 * TODO: Another solution: given that InsertLocators method is MapTable is public,
+		 * we can directly call related method to insert new EID-RLOC mapping into
+		 * database. The current applied solution is more modular: we send message to lispOverIpv4
+		 * and let the latter to manipulate the map tables.
+		 */
+		//TODO:How if we use IP aliasing (secondary @IP on the Netdevice)?
+		Ptr<LispOverIpv4> lisp = GetNode ()->GetObject<LispOverIpv4> ();
+		Ptr<MappingSocketMsg> mapSockMsg = Create<MappingSocketMsg> ();
+		Ptr<Locators> locators = Create<LocatorsImpl> ();
+		/**
+		 * Construt message content: one EID and one unique RLOC (but we can support a list of RLOC)
+		 * 1) EID field in mapping socket message => Easy!
+		 * 2) RLOC list, default priority and weight make it as 100.
+		 * At last, remind that this message is not the lisp control plan message exchange between xTR
+		 * It is the message used between lisp data plan and control plan.
+		 * Here we use this between lisp data plan and DHCP
+		 */
+		mapSockMsg->SetEndPoint (eid);
+		Ptr<RlocMetrics> rlocMetrics = Create<RlocMetrics> (100, 100, true);
+		rlocMetrics->SetMtu (1500);
+		rlocMetrics->SetIsLocalIf (true);
+		Ptr<Locator> locator = Create<Locator> (m_offeredAddress);
+		locator->SetRlocMetrics (rlocMetrics);
+		locators->InsertLocator (locator);
+		mapSockMsg->SetLocators (locators);
 
-  }
+		/**
+		 * Update,02-22-2018,Yue
+		 * Construct message header
+		 * Note:
+		 * 1) unlike Java, an instruction like: MappingSocketMsgHeader mapSockHeader;
+		 * is able to create an object. Afterwards, we can set attribute for this
+		 * object. This will cause NullPointer in Java! However, in C++, it works!
+		 * 2) For mapVersionning , we use value set by the
+		 * MappingSocketMsgHeader constructor.
+		 * TODO In MappingVersion mobility, maybe we should rethink how to set the
+		 * mapping versionning.
+		 * 3) In this case, maybe we don't need to care about MAP flags.
+		 */
+		MappingSocketMsgHeader mapSockHeader;
+		mapSockHeader.SetMapAddresses (
+				(int) mapSockHeader.GetMapAddresses ()
+						| static_cast<int> (LispMappingSocket::MAPA_RLOC));
+		// Question: why not consider LispMappingSocket::MAPA_EID, LispMappingSocket::MAPA_EIDMASK indicate implicitly the presence of EID?
+		mapSockHeader.SetMapAddresses (
+				(int) mapSockHeader.GetMapAddresses ()
+						| static_cast<int> (LispMappingSocket::MAPA_EIDMASK));
 
-  void
-  DhcpClient::RemoveAndStart ()
-  {
-    NS_LOG_FUNCTION_NOARGS ();
-    Simulator::Remove (m_nextOfferEvent);
-    Simulator::Remove (m_refreshEvent);
-    Simulator::Remove (m_rebindEvent);
-    Simulator::Remove (m_timeout);
+		/**
+		 *  This newly assigned RLOC-EID mapping should be inserted into lisp
+		 *  into database (instead of cache). It seems that in Lionel's implementation.
+		 *  No field in message header to indicate the message should be inserted into
+		 *  database or cache? Maybe in the method of LispOverIpv4 processing this message
+		 *  should explicitly to decide which database it should manipulate.
+		 */
+		uint8_t buf[256];
+		mapSockMsg->Serialize (buf);
+		mapSockHeader.SetMapType (LispMappingSocket::MAPM_DATABASE_UPDATE);
+		Ptr<Packet> packet = Create<Packet> (buf, 256);
+		packet->AddHeader (mapSockHeader);
+		m_lispMappingSocket->Send (packet);
+		NS_LOG_DEBUG(
+				"Send newly assigned RLOC-EID to lispOverIpv4 so that LISP-MN's Database (not Cache) can be updated!");
+		NS_LOG_DEBUG(
+				"RLOCs sent by DHCP client: \n"<<mapSockMsg->GetLocators()->Print());
 
-    Ptr<Ipv4> ipv4MN = GetNode ()->GetObject<Ipv4> ();
-    int32_t ifIndex = ipv4MN->GetInterfaceForDevice (
-	GetNode ()->GetDevice (m_device));
-    NS_ASSERT(ifIndex >= 0);
-    for (uint32_t i = 0; i < ipv4MN->GetNAddresses (ifIndex); i++)
-      {
-	if (ipv4MN->GetAddress (ifIndex, i).GetLocal () == m_myAddress)
-	  {
-	    ipv4MN->RemoveAddress (ifIndex, i);
-	    break;
-	  }
-      }
-    m_expiry (m_myAddress);
-    Ipv4StaticRoutingHelper ipv4RoutingHelper;
-    Ptr<Ipv4StaticRouting> staticRouting = ipv4RoutingHelper.GetStaticRouting (
-	ipv4MN);
-    uint32_t i;
-    for (i = 0; i < staticRouting->GetNRoutes (); i++)
-      {
-	if (staticRouting->GetRoute (i).GetGateway () == m_gateway
-	    && staticRouting->GetRoute (i).GetInterface () == (uint32_t) ifIndex
-	    && staticRouting->GetRoute (i).GetDest ()
-		== Ipv4Address ("0.0.0.0"))
-	  {
-	    staticRouting->RemoveRoute (i);
-	    break;
-	  }
-      }
-    StartApplication ();
-  }
+	}
+
+	void
+	DhcpClient::RemoveAndStart ()
+	{
+		NS_LOG_FUNCTION_NOARGS ();
+		Simulator::Remove (m_nextOfferEvent);
+		Simulator::Remove (m_refreshEvent);
+		Simulator::Remove (m_rebindEvent);
+		Simulator::Remove (m_timeout);
+
+		Ptr<Ipv4> ipv4MN = GetNode ()->GetObject<Ipv4> ();
+		int32_t ifIndex = ipv4MN->GetInterfaceForDevice (
+				GetNode ()->GetDevice (m_device));
+		NS_ASSERT(ifIndex >= 0);
+		for (uint32_t i = 0; i < ipv4MN->GetNAddresses (ifIndex); i++)
+			{
+				if (ipv4MN->GetAddress (ifIndex, i).GetLocal () == m_myAddress)
+					{
+						ipv4MN->RemoveAddress (ifIndex, i);
+						break;
+					}
+			}
+		m_expiry (m_myAddress);
+		Ipv4StaticRoutingHelper ipv4RoutingHelper;
+		Ptr<Ipv4StaticRouting> staticRouting = ipv4RoutingHelper.GetStaticRouting (
+				ipv4MN);
+		uint32_t i;
+		for (i = 0; i < staticRouting->GetNRoutes (); i++)
+			{
+				if (staticRouting->GetRoute (i).GetGateway () == m_gateway
+						&& staticRouting->GetRoute (i).GetInterface () == (uint32_t) ifIndex
+						&& staticRouting->GetRoute (i).GetDest ()
+								== Ipv4Address ("0.0.0.0"))
+					{
+						staticRouting->RemoveRoute (i);
+						break;
+					}
+			}
+		StartApplication ();
+	}
+
+	void
+	DhcpClient::SetAlloIpCallback(AlloIpCallback cb)
+	{
+		m_allocationIpCb = cb;
+	}
+
+	void
+	DhcpClient::SetUpdateRlocCallback(UpdateRlocCallback cb)
+	{
+		NS_LOG_FUNCTION(this<<&cb);
+		m_updateRlocCb = cb;
+	}
 
 } // Namespace ns3

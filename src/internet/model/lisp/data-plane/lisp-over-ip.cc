@@ -287,12 +287,81 @@ namespace ns3
 		m_cacheMissCb = cb;
 	}
 
+  void
+	LispOverIp::SetDatabaseUpdateCallback (DatabaseUpdateCallback cb)
+  {
+  	m_databaseUpdateCb = cb;
+  }
+
+
 	void
 	LispOverIp::CacheMissHandler (Address addr)
 	{
 //		NS_ASSERT_MSG(m_cacheMissCb!=0, "CacheMissCallback should not be 0!");
 		NS_LOG_DEBUG("Cache miss event happens! Cache miss hanlder is called.");
 		m_cacheMissCb(addr);
+	}
+
+	void
+	LispOverIp::DatabaseUpdateHandler(Ptr<MapEntry> mapEntry)
+	{
+		//Don't forget to insert the received MapEntry into database!
+		/**
+		 * TODO: Yue
+		 * The best way to handle the database update event is that
+		 * LispOverIp only call API of maptables to insert received mapEntry.
+		 * MapTables has a callback in charge of map register message...
+		 *
+		 */
+		Ptr<EndpointId> eidPrefix = mapEntry->GetEidPrefix();
+		InsertMapEntry2Database (eidPrefix, mapEntry);
+		m_databaseUpdateCb(mapEntry);
+	}
+
+	void
+	LispOverIp::InsertMapEntry2Cache (Ptr<EndpointId> eidPrefix, Ptr<MapEntry> mapEntry)
+	{
+		if(eidPrefix->IsIpv4 ())
+			{
+				m_mapTablesIpv4->SetEntry (eidPrefix->GetEidAddress (), eidPrefix->GetIpv4Mask (), mapEntry, MapTables::IN_CACHE);
+				NS_LOG_DEBUG(
+							"Ipv4 Map Entry IPv4 (Extracted from Map Reply Message) has been saved in cache database by LispOverIp");
+			}
+		else
+			{
+				m_mapTablesIpv6->SetEntry (eidPrefix->GetEidAddress (), eidPrefix->GetIpv6Prefix (), mapEntry, MapTables::IN_CACHE);
+				NS_LOG_DEBUG(
+						"Ipv4 Map Entry IPv6 (Extracted from Map Reply Message) has been saved in cache database by LispOverIp");
+			}
+	}
+
+	void
+	LispOverIp::InsertMapEntry2Database (Ptr<EndpointId> eidPrefix, Ptr<MapEntry> mapEntry)
+	{
+		if(eidPrefix->IsIpv4 ())
+			{
+				m_mapTablesIpv4->SetEntry (eidPrefix->GetEidAddress (),
+																	 eidPrefix->GetIpv4Mask (), mapEntry,
+																		MapTables::IN_DATABASE);
+				NS_LOG_DEBUG(
+						"Ipv4 Map Entry IPv4 (Received from DHCP client) has been saved in database by LispOverIp");
+				NS_LOG_DEBUG(
+						"After message from DHCP to LISP, LISP Database now: \n"<<*(LispOverIp::GetMapTablesV4()));
+			}
+		else
+			{
+				m_mapTablesIpv6->SetEntry (eidPrefix->GetEidAddress (),
+																	 eidPrefix->GetIpv6Prefix (), mapEntry,
+																		MapTables::IN_DATABASE);
+				NS_LOG_DEBUG(
+						"Ipv4 Map Entry IPv6 (Received from DHCP client) has been saved in database by LispOverIp");
+			}
+	}
+
+	void
+	LispOverIp::InsertKnownRloc(Address rlocAddr)
+	{
+		m_rlocsList.insert (rlocAddr);
 	}
 
 	void
@@ -339,24 +408,8 @@ namespace ns3
 								mapEntry->setIsNegative (0);
 								mapEntry->SetLocators (locators);
 							}
-						if (eid->IsIpv4 ())
-							{
-								// In the case of cache update, we should first delete the previous one containing EID-prefix
-								// This work is done by SetEntry method!
-								m_mapTablesIpv4->SetEntry (eid->GetEidAddress (),
-																						eid->GetIpv4Mask (), mapEntry,
-																						MapTables::IN_CACHE);
-								NS_LOG_DEBUG(
-										"Ipv4 Map Entry IPv4 (Extracted from Map Reply Message) has been saved in cache database by LispOverIp");
-							}
-						else
-							{
-								m_mapTablesIpv6->SetEntry (eid->GetEidAddress (),
-																						eid->GetIpv6Prefix (), mapEntry,
-																						MapTables::IN_CACHE);
-								NS_LOG_DEBUG(
-										"Ipv4 Map Entry IPv6 (Extracted from Map Reply Message) has been saved in cache database by LispOverIp");
-							}
+
+							InsertMapEntry2Cache(eid, mapEntry);
 					}
 				else if (sockMsgHdr.GetMapType ()
 						== static_cast<uint16_t> (LispMappingSocket::MAPM_DELETE))
@@ -402,30 +455,16 @@ namespace ns3
 								mapEntry->setIsNegative (0);
 								mapEntry->SetLocators (locators);
 							}
-						if (eid->IsIpv4 ())
-							{
-								//TODO: to verify if map data structure supports add (or update) manipulation.
-								// This is important cause DHCP will periodically received offered @IP.
-								// If two different RLOCs, how to treat it?
-								// 07-10-2017: DHCP client should guarantee that the newly assigned @IP is different from previous one
-								// In the case of cache update, we should first delete the previous one containing EID-prefix
-								// This work is done by SetEntry method!
-								m_mapTablesIpv4->SetEntry (eid->GetEidAddress (),
-																						eid->GetIpv4Mask (), mapEntry,
-																						MapTables::IN_DATABASE);
-								NS_LOG_DEBUG(
-										"Ipv4 Map Entry IPv4 (Received from DHCP client) has been saved in database by LispOverIp");
-								NS_LOG_DEBUG(
-										"After message from DHCP to LISP, LISP Database now: \n"<<*(LispOverIp::GetMapTablesV4()));
-							}
-						else
-							{
-								m_mapTablesIpv6->SetEntry (eid->GetEidAddress (),
-																						eid->GetIpv6Prefix (), mapEntry,
-																						MapTables::IN_DATABASE);
-								NS_LOG_DEBUG(
-										"Ipv4 Map Entry IPv6 (Received from DHCP client) has been saved in database by LispOverIp");
-							}
+						/**
+						 * TODO: to verify if map data structure supports add (or update) manipulation.
+						 * This is important cause DHCP will periodically received offered @IP.
+						 * If two different RLOCs, how to treat it?
+						 * 07-10-2017: DHCP client should guarantee that the newly assigned @IP is different from previous one
+						 * In the case of cache update, we should first delete the previous one containing EID-prefix
+						 * This work is done by SetEntry method!
+						 */
+						InsertMapEntry2Database (eid, mapEntry);
+
 						/**
 						 * IMPORTANT: To support LISP-MN.
 						 * 1) Send a signal (MAPM_REGISTER) to xTR application so that xTR send map register again

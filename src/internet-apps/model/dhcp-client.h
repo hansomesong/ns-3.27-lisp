@@ -41,6 +41,7 @@ namespace ns3 {
 
 class Packet;
 class Ipv4RawSocketImpl;
+class MapEntry;
 
 /**
  * \ingroup dhcp
@@ -51,6 +52,10 @@ class Ipv4RawSocketImpl;
 class DhcpClient : public Application
 {
 public:
+
+	typedef Callback<void, Ptr<MapEntry>> AlloIpCallback;
+	typedef Callback<void, Address> UpdateRlocCallback;
+
   /**
    * \brief Get the type ID.
    * \return the object TypeId
@@ -83,6 +88,11 @@ public:
    * \return the number of stream indices assigned by this model
    */
   int64_t AssignStreams (int64_t stream);
+
+
+  void SetAlloIpCallback(AlloIpCallback cb);
+
+  void SetUpdateRlocCallback(UpdateRlocCallback cb);
 
 protected:
   virtual void DoDispose (void);
@@ -211,6 +221,12 @@ private:
    */
   void LispDataBaseManipulation(Ptr<EndpointId> eid);
 
+  /**
+   * This method is created to replace LispDataBaseManipulation and based on callack
+   */
+	void AcceptAckLispHandler(Ptr<EndpointId> eid);
+
+
   /*
    * \brief Remove the current DHCP information and restart the process
    */
@@ -271,6 +287,9 @@ private:
 
   Address m_lispProtoAddress;
   Ptr<Socket> m_lispMappingSocket;
+
+  AlloIpCallback m_allocationIpCb;
+  UpdateRlocCallback m_updateRlocCb;
 
   void HandleMapSockRead (Ptr<Socket> lispMappingSocket);
 

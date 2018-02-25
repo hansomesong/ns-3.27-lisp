@@ -27,6 +27,7 @@
 #include "ns3/dhcp-client.h"
 #include "ns3/uinteger.h"
 #include "ns3/names.h"
+#include "ns3/lisp-over-ip.h"
 
 namespace ns3 {
 
@@ -73,9 +74,8 @@ ApplicationContainer DhcpServerHelper::Install (Ptr<Node> node) const
 
 Ptr<Application> DhcpClientHelper::InstallPriv (Ptr<Node> node) const
 {
-  Ptr<Application> app = m_factory.Create<DhcpClient> ();
+  Ptr<DhcpClient> app = m_factory.Create<DhcpClient> ();
   node->AddApplication (app);
-
   return app;
 }
 

@@ -1255,7 +1255,7 @@ Ipv4L3Protocol::LocalDeliver (Ptr<const Packet> packet, Ipv4Header const&ip, uin
 	// ================================Adaption to support LISP===========================
   NS_LOG_DEBUG("We are in local delivery on node " << m_node->GetId ());
 	/**
-	 * Qipeng: I think it is better to do a mapTable check here also
+	 * Yue: I think it is better to do a mapTable check here also
 	 */
 	Ptr<LispOverIpv4> lisp = m_node->GetObject<LispOverIpv4> ();
 	int nbEntriesDB = 0;
