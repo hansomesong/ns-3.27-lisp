@@ -99,8 +99,8 @@ namespace ns3
 			m_server (Ipv4Address::GetAny ())
 	{
 		NS_LOG_FUNCTION_NOARGS ();
+		// socket can be initialized as 0. How about callback function?
 		m_socket = 0;
-		m_lispMappingSocket = 0;
 		m_refreshEvent = EventId ();
 		m_requestEvent = EventId ();
 		m_discoverEvent = EventId ();
@@ -162,46 +162,7 @@ namespace ns3
 		// Since in LinkStateChange handler, RecvCallback has been removed...
 		// Thus, here in anycase, we should add this callback...
 		m_socket->SetRecvCallback (MakeCallback (&DhcpClient::NetHandler, this));
-
-		Ptr<LispOverIp> lisp = GetNode ()->GetObject<LispOverIp> ();
-		if (m_lispMappingSocket != 0)
-			{
-				NS_LOG_WARN("DHCP client has already a Lisp Mapping Socket!");
-			}
-		else if (lisp != 0 and m_lispMappingSocket == 0)
-			{
-				NS_LOG_DEBUG(
-						"DHCP client is trying to connect to data plan (actually LispOverIpv4 object).");
-				// #2: create lispMappingSocket object, which is declared as Socket
-				TypeId tid = TypeId::LookupByName ("ns3::LispMappingSocketFactory");
-				m_lispMappingSocket = Socket::CreateSocket (GetNode (), tid);
-				Ptr<LispOverIp> lisp = m_lispMappingSocket->GetNode ()->GetObject<
-						LispOverIp> ();
-				m_lispProtoAddress = lisp->GetLispMapSockAddress ();
-				m_lispMappingSocket->Bind ();
-				m_lispMappingSocket->Connect (m_lispProtoAddress);
-				//It is very possible that m_lispProtoAddress is a special kind of address
-				//which is not an Ipv4 neither Ipv6 address.
-				NS_LOG_DEBUG("DHCP client has connected to " << m_lispProtoAddress);
-				// Since we haven't touched lispMappingSocket's callback, here we just
-				// add callback when need to create a mapping socket...
-				m_lispMappingSocket->SetRecvCallback (
-						MakeCallback (&DhcpClient::HandleMapSockRead, this));
-			}
 		NS_LOG_DEBUG("DHCP client finishes the socket create process");
-	}
-
-	void
-	DhcpClient::HandleMapSockRead (Ptr<Socket> lispMappingSocket)
-	{
-		NS_LOG_FUNCTION(this);
-		Ptr<Packet> packet;
-		Address from;
-		while ((packet = lispMappingSocket->RecvFrom (from)))
-			{
-				NS_LOG_DEBUG(
-						"Receive messages from lisp. They are dedicated to xTR apps. DHCP has nothing to do.");
-			}
 	}
 
 	void
@@ -209,13 +170,6 @@ namespace ns3
 	{
 		m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
 		m_socket->Close ();
-		Ptr<LispOverIp> lisp = GetNode ()->GetObject<LispOverIp> ();
-		if (lisp != 0)
-			{
-				m_lispMappingSocket->SetRecvCallback (
-						MakeNullCallback<void, Ptr<Socket> > ());
-				m_lispMappingSocket->Close ();
-			}
 	}
 
 	void
@@ -867,81 +821,6 @@ namespace ns3
 		mapEntry->setIsNegative (0);
 		mapEntry->SetLocators (locators);
 		m_allocationIpCb(mapEntry);
-	}
-
-	void
-	DhcpClient::LispDataBaseManipulation (Ptr<EndpointId> eid)
-	{
-		/**
-		 * Send Mapping socket control message to lispOverIpv4 object so that
-		 * lisp database can (if exist) add or update new EID-RLOC map entry
-		 *
-		 * TODO: Another solution: given that InsertLocators method is MapTable is public,
-		 * we can directly call related method to insert new EID-RLOC mapping into
-		 * database. The current applied solution is more modular: we send message to lispOverIpv4
-		 * and let the latter to manipulate the map tables.
-		 */
-		//TODO:How if we use IP aliasing (secondary @IP on the Netdevice)?
-		Ptr<LispOverIpv4> lisp = GetNode ()->GetObject<LispOverIpv4> ();
-		Ptr<MappingSocketMsg> mapSockMsg = Create<MappingSocketMsg> ();
-		Ptr<Locators> locators = Create<LocatorsImpl> ();
-		/**
-		 * Construt message content: one EID and one unique RLOC (but we can support a list of RLOC)
-		 * 1) EID field in mapping socket message => Easy!
-		 * 2) RLOC list, default priority and weight make it as 100.
-		 * At last, remind that this message is not the lisp control plan message exchange between xTR
-		 * It is the message used between lisp data plan and control plan.
-		 * Here we use this between lisp data plan and DHCP
-		 */
-		mapSockMsg->SetEndPoint (eid);
-		Ptr<RlocMetrics> rlocMetrics = Create<RlocMetrics> (100, 100, true);
-		rlocMetrics->SetMtu (1500);
-		rlocMetrics->SetIsLocalIf (true);
-		Ptr<Locator> locator = Create<Locator> (m_offeredAddress);
-		locator->SetRlocMetrics (rlocMetrics);
-		locators->InsertLocator (locator);
-		mapSockMsg->SetLocators (locators);
-
-		/**
-		 * Update,02-22-2018,Yue
-		 * Construct message header
-		 * Note:
-		 * 1) unlike Java, an instruction like: MappingSocketMsgHeader mapSockHeader;
-		 * is able to create an object. Afterwards, we can set attribute for this
-		 * object. This will cause NullPointer in Java! However, in C++, it works!
-		 * 2) For mapVersionning , we use value set by the
-		 * MappingSocketMsgHeader constructor.
-		 * TODO In MappingVersion mobility, maybe we should rethink how to set the
-		 * mapping versionning.
-		 * 3) In this case, maybe we don't need to care about MAP flags.
-		 */
-		MappingSocketMsgHeader mapSockHeader;
-		mapSockHeader.SetMapAddresses (
-				(int) mapSockHeader.GetMapAddresses ()
-						| static_cast<int> (LispMappingSocket::MAPA_RLOC));
-		// Question: why not consider LispMappingSocket::MAPA_EID, LispMappingSocket::MAPA_EIDMASK indicate implicitly the presence of EID?
-		mapSockHeader.SetMapAddresses (
-				(int) mapSockHeader.GetMapAddresses ()
-						| static_cast<int> (LispMappingSocket::MAPA_EIDMASK));
-
-		/**
-		 *  This newly assigned RLOC-EID mapping should be inserted into lisp
-		 *  into database (instead of cache). It seems that in Lionel's implementation.
-		 *  No field in message header to indicate the message should be inserted into
-		 *  database or cache? Maybe in the method of LispOverIpv4 processing this message
-		 *  should explicitly to decide which database it should manipulate.
-		 */
-		uint8_t buf[256];
-		mapSockMsg->Serialize (buf);
-		mapSockHeader.SetMapType (LispMappingSocket::MAPM_DATABASE_UPDATE);
-		Ptr<Packet> packet = Create<Packet> (buf, 256);
-		packet->AddHeader (mapSockHeader);
-		m_lispMappingSocket->Send (packet);
-		NS_LOG_DEBUG(
-				"Send newly assigned RLOC-EID to lispOverIpv4 so that LISP-MN's Database (not Cache) can be updated!");
-		NS_LOG_DEBUG(
-				"RLOCs sent by DHCP client: \n"<<mapSockMsg->GetLocators()->Print());
-
 	}
 
 	void

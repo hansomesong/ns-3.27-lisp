@@ -94,7 +94,7 @@ Ptr<Application> LispEtrItrAppHelper::InstallPriv (Ptr<Node> node) const
   node->AddApplication (app);
 
   /**
-   * Q.P SONG, 2018-02-18, Update
+   * Yue, 2018-02-18, Update
    * To make the simulator more flexible, we intent to use ns-3 callback mechanism to implement the communication
    * between LISP data plane and control plane.
    * We start from the callback for cache miss event processing. A callback type attribute is added to LispOverIp.
@@ -105,6 +105,7 @@ Ptr<Application> LispEtrItrAppHelper::InstallPriv (Ptr<Node> node) const
    */
   lisp->SetCacheMissCallback(MakeCallback(&LispEtrItrApplication::SendMapRequest2, app));
   lisp->SetDatabaseUpdateCallback(MakeCallback(&LispEtrItrApplication::SendOneMapRegister, app));
+  app->SetMapReplyCallback(MakeCallback(&LispOverIp::InsertMapEntry2Cache, lisp));
   return app;
 }
 

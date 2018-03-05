@@ -283,16 +283,12 @@ private:
    * (Note that we need to check whether LispOverIpv4 object is present in the node,
    * if yes, create m_lispMappingSocket and connect it to m_lispProtoAddress and
    * send newly assigned RLOC to LispOverIpv4 to insert the former to lisp database.)
+   *
+   * Yue: in the new version, this attribute has been deleted. We use callback
    */
-
-  Address m_lispProtoAddress;
-  Ptr<Socket> m_lispMappingSocket;
 
   AlloIpCallback m_allocationIpCb;
   UpdateRlocCallback m_updateRlocCb;
-
-  void HandleMapSockRead (Ptr<Socket> lispMappingSocket);
-
 
 };
 

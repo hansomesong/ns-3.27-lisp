@@ -47,6 +47,8 @@ class LispEtrItrApplication : public Application
 
 public:
 
+	typedef Callback<void, Ptr<EndpointId>, Ptr<MapEntry>> MapReplyCallback;
+
   static TypeId
   GetTypeId (void);
 
@@ -112,18 +114,9 @@ public:
 
   void Send (Ptr<Packet> packet);
 
-  /**
-   * \brief Handle a packet reception.
-   *
-   * This function is called by lower layers.
-   *
-   * \param socket the socket the packet was received to.
-   */
-  void HandleRead (Ptr<Socket> socket);
-
   void HandleReadControlMsg (Ptr<Socket> socket);
 
-  void HandleMapSockRead (Ptr<Socket> lispMappingSocket);
+//  void HandleMapSockRead (Ptr<Socket> lispMappingSocket);
 
   bool IsInRequestList (Ptr<EndpointId> eid) const;
   bool IsInRequestCounter (Ptr<EndpointId> eid) const;
@@ -140,10 +133,17 @@ public:
   MappingSocketMsgHeader GenerateMapSocketAddMsgHeader(Ptr<MapReplyMsg> replyMsg);
   Ptr<MapReplyMsg> GenerateMapReply4ChangedMapping (Ptr<MapRequestMsg> requestMsg);
 
+  /**
+   * \brief Generate a map entry object from received map reply message
+   * \param replyMsg received map reply message;
+   */
+  Ptr<MapEntry> GenerateMapEntry (Ptr<MapReplyMsg> replyMsg);
 
   Address GetLocalAddress (Address address);
 
 	Ptr<EndpointId> GetLispMnEid();
+
+	void SetMapReplyCallback(MapReplyCallback cb);
 
 private:
 
@@ -185,6 +185,9 @@ private:
   EventId m_event;
   uint16_t m_peerPort;
   uint32_t m_seed;
+
+  // A callback which will be called when a map reply message is received
+  MapReplyCallback m_MapReplyCb;
 
 };
 

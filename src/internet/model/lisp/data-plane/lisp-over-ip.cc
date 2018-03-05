@@ -298,7 +298,7 @@ namespace ns3
 	LispOverIp::CacheMissHandler (Address addr)
 	{
 //		NS_ASSERT_MSG(m_cacheMissCb!=0, "CacheMissCallback should not be 0!");
-		NS_LOG_DEBUG("Cache miss event happens! Cache miss hanlder is called.");
+		NS_LOG_DEBUG("Cache miss event happens! Cache miss handler is called.");
 		m_cacheMissCb(addr);
 	}
 
