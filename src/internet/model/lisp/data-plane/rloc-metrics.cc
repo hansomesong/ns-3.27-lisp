@@ -232,7 +232,7 @@ Ptr<RlocMetrics> RlocMetrics::DeserializedInMapReplyRecord(const uint8_t *buf){
 
 	// set for flag L
 	if (buf[5] & RLOCF_L) {
-		//Qipeng: I'm not sure if I well understand member attribute: isLocalIf.
+		//Yue: I'm not sure if I well understand member attribute: isLocalIf.
 		//I think it is identical to flag L in Map-Reply message
 		//Thus, we set these two attributes at the same time.
 		rlocMetrics->SetIsLocalIf(true);

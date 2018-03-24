@@ -16,8 +16,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * Author: Lionel Agbodjan <lionel.agbodjan@gmail.com>
- * 	 : Qipeng Song <qpsong@gmail.com>
  * 	 : Yue Li <selene.cnfr@gmail.com>
+ * 	 : Qipeng Song <qpsong@gmail.com>
+ *
  */
 
 #include "lisp-etr-itr-application.h"
@@ -142,11 +143,11 @@ void LispEtrItrApplication::StartApplication(void) {
 									m_mapServerAddress.front()), m_peerPort));
 		}
 	}
-	// Qipeng: Useful to send map register message...
+	// Yue: Useful to send map register message...
 	m_socket->SetRecvCallback(
 			MakeCallback(&LispEtrItrApplication::HandleRead, this));
 
-	// Qipeng: bind to local address in order to receive lisp control plan message: map request/reply, etc.
+	// Yue: bind to local address in order to receive lisp control plan message: map request/reply, etc.
 	// However, it seems that xTR never use the following two sockets. See whether we should remove them.
 	if (m_lispCtlMsgRcvSocket == 0) {
 		TypeId tid = TypeId::LookupByName("ns3::UdpSocketFactory");
@@ -307,7 +308,7 @@ void LispEtrItrApplication::HandleReadControlMsg(Ptr<Socket> socket) {
 				Ptr<MapReplyMsg> mapReply =
 						LispEtrItrApplication::GenerateMapReply(requestMsg);
 				/**
-				 * Update, 02-02-2018, Qipeng
+				 * Update, 02-02-2018, Yue
 				 * We never consider how to process the case NEGATIVE MAP Reply!
 				 * Should checke whether mapReply is 0 before sending it.
 				 */
@@ -992,7 +993,7 @@ void LispEtrItrApplication::DeleteFromMapReqList(Ptr<EndpointId> eid) {
 	}
 
 }
-//TODO: Qipeng: I thinks this method is not useful...
+//TODO: Yue: I thinks this method is not useful...
 	void
 	LispEtrItrApplication::HandleRead (Ptr<Socket> socket)
 	{

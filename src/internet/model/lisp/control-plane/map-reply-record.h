@@ -67,7 +67,7 @@ public:
 
   static const uint32_t m_defaultRecordTtl;
   /**
-   * Qipeng: I decide to declare the length (in number of bytes) as static and constant
+   * Yue: I decide to declare the length (in number of bytes) as static and constant
    * variable in class header file.
    * I'm not sure if it is the best solution.
    */

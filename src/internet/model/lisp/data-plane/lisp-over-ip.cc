@@ -77,7 +77,7 @@ namespace ns3
   LispOverIp::LispOverIp ()
   {
     /**
-     * Qipeng gives some explanation:
+     * Yue gives some explanation:
      * 2017-04-27
      * When LispOverIp is instantialized, we note that CreateSocket method has been
      * invoked one time and m_lispSocket is returned.

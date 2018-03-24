@@ -563,7 +563,7 @@ Ipv4L3Protocol::Receive ( Ptr<NetDevice> device, Ptr<const Packet> p, uint16_t p
 	 * to re-inject the inner IP packet on the device.
 	 * Here the device number  (or pointer) is that saved in LispOverIpv4 object.
 	 *
-	 * Qipeng do this. not Lionel.
+	 * Yue do this. not Lionel.
 	 */
 	Ptr<LispOverIpv4> lisp = m_node->GetObject<LispOverIpv4> ();
 	if (lisp != 0)
@@ -1200,7 +1200,7 @@ Ipv4L3Protocol::IpForward (Ptr<Ipv4Route> rtentry, Ptr<const Packet> p, const Ip
     }
 
 	/**
-	 * Qipeng:
+	 * Yue:
 	 * 2017-04-28: Add check for map tables. Otherwise program is possibe to crash
 	 * due to segmentation fault.
 	 * 2018-01-31: Copy this from ns-3.26 to ns-3.27
@@ -1212,7 +1212,7 @@ Ipv4L3Protocol::IpForward (Ptr<Ipv4Route> rtentry, Ptr<const Packet> p, const Ip
 			NS_LOG_DEBUG("first check to enter in lisp code block passed!");
 			nbEntriesDB = lisp->GetMapTablesV4 ()->GetNMapEntriesLispDataBase ();
 			/**
-			 * Qipeng's comment: I observe that for the received DHCP offer message from
+			 * Yue's comment: I observe that for the received DHCP offer message from
 			 * DHCP server. NeedEncapsulation check is true! This leads to the simulation
 			 * program crash, since without DHCP exchange, lisp database is still empty!!!
 			 * So, to support LISP-DHCP, we should modify in this file or modify the creation
@@ -1255,7 +1255,7 @@ Ipv4L3Protocol::LocalDeliver (Ptr<const Packet> packet, Ipv4Header const&ip, uin
 	// ================================Adaption to support LISP===========================
   NS_LOG_DEBUG("We are in local delivery on node " << m_node->GetId ());
 	/**
-	 * Qipeng: I think it is better to do a mapTable check here also
+	 * Yue: I think it is better to do a mapTable check here also
 	 */
 	Ptr<LispOverIpv4> lisp = m_node->GetObject<LispOverIpv4> ();
 	int nbEntriesDB = 0;

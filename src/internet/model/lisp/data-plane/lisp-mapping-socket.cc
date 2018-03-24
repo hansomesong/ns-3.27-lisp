@@ -130,7 +130,7 @@ return 0;
 
 int LispMappingSocket::GetPeerName (Address &address) const
 {
-  //Implemented by Qipeng.
+  //Implemented by Yue.
   //I'm not sure the following implementation is correct
   NS_LOG_FUNCTION (this << address);
   address = MappingSocketAddress::ConvertFrom (m_destAddres);

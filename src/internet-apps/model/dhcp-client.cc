@@ -703,7 +703,12 @@ namespace ns3
 			{
 				NS_LOG_DEBUG(
 						"A different assigned IP address! LISP processing should be called...");
-				DhcpClient::LispDataBaseManipulation (DhcpClient::GetEid ());
+				// We need ensure presence of  EID is not 0 => EID is actually assigned as
+				Ptr<EndpointId> eid = DhcpClient::GetEid ();
+				if(eid)
+					{
+						DhcpClient::LispDataBaseManipulation (eid);
+					}
 			}
 		m_offerList.clear ();
 		m_refreshEvent = Simulator::Schedule (m_renew, &DhcpClient::Request, this);
@@ -825,22 +830,27 @@ namespace ns3
 	DhcpClient::GetEid ()
 	{
 		NS_LOG_FUNCTION(this);
-		Ptr<EndpointId> eid;
+		Ptr<EndpointId> eid = 0;
 		uint32_t ifTunIndex = DhcpClient::GetIfTunIndex ();
 		Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
 		if (ifTunIndex)
 			{
 				Ipv4Address eidAddress = ipv4->GetAddress (ifTunIndex, 0).GetLocal ();
-//      Ipv4Mask eidMask = ipv4->GetAddress (ifTunIndex, 0).GetMask ();
+				/**
+				 * TODO: Maybe we should consider the case where TUN net device is installed.
+				 * But, no @IP is assigned!
+				 */
 				// LISP-MN, as a single machine, we use "/32" as EID mask
 				eid = Create<EndpointId> (eidAddress, Ipv4Mask ("/32"));
 				NS_LOG_DEBUG("The retrieved EID:"<< eid->Print());
+				return eid;
 			}
-		/**
-		 * TODO: Maybe we should consider the case where TUN net device is installed.
-		 * But, no @IP is assigned!
-		 */
-		return eid;
+
+		else
+			{
+				NS_LOG_DEBUG("No TUN device on this node! Return 0");
+				return 0;
+			}
 	}
 
   void

@@ -1,6 +1,11 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 /*
+ * This script simulates a basic scenario without LISP mobility.
+ * Do LISP stack over node 0 (i.e. MN)
+ * Otherwise, segmentation fault error will be thrown by DHCP client due to LISP database update operation.
+ * To study TCP/UDP throughput in this case
+ *
  * RUN Command:
  *
  * RUN DEBUG Command:
@@ -38,149 +43,27 @@
 
 #include "ns3/internet-trace-helper.h"
 
+// for GNUPlot and instantaneous throughput
 #include "ns3/gnuplot.h"
 #include "ns3/flow-monitor-module.h"
 #include "ns3/flow-monitor-helper.h"
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE("LispMobilityBetweenNetwork");
-
-static bool g_verbose = true;
-
+NS_LOG_COMPONENT_DEFINE("LispReference");
 
 void
-DevTxTrace (std::string context, Ptr<const Packet> p)
-{
-  if (g_verbose)
-    {
-      std::cout << " TX p: " << *p << std::endl;
-    }
-}
-void
-DevRxTrace (std::string context, Ptr<const Packet> p)
-{
-  if (g_verbose)
-    {
-      std::cout << " RX p: " << *p << std::endl;
-    }
-}
-void
-PhyRxOkTrace (std::string context, Ptr<const Packet> packet, double snr,
-	      WifiMode mode, enum WifiPreamble preamble)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYRXOK mode=" << mode << " snr=" << snr << " " << *packet
-	  << std::endl;
-    }
-}
-void
-PhyRxErrorTrace (std::string context, Ptr<const Packet> packet, double snr)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYRXERROR snr=" << snr << " " << *packet << std::endl;
-    }
-}
-void
-PhyTxTrace (std::string context, Ptr<const Packet> packet, WifiMode mode,
-	    WifiPreamble preamble, uint8_t txPower)
-{
-  if (g_verbose)
-    {
-      std::cout << "PHYTX mode=" << mode << " " << *packet << std::endl;
-    }
-}
-void
-PhyStateTrace (std::string context, Time start, Time duration,
-	       enum WifiPhy::State state)
-{
-  if (g_verbose)
-    {
-      std::cout << " state=" << state << " start=" << start << " duration="
-	  << duration << std::endl;
-    }
-}
-
-static void
 SetPosition (Ptr<Node> node, Vector position)
 {
   Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
   mobility->SetPosition (position);
 }
 
-static Vector
+Vector
 GetPosition (Ptr<Node> node)
 {
   Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
   return mobility->GetPosition ();
-}
-
-static void
-AdvancePosition (Ptr<Node> node)
-{
-  Vector pos = GetPosition (node);
-  pos.x += 5.0;
-  pos.y -= 5.0;
-  if (pos.x >= 240.0 or pos.y >= 240 or pos.y <=0)
-    {
-      return;
-    }
-  SetPosition (node, pos);
-
-  if (g_verbose)
-    {
-      std::cout << "x=" << pos.x << ", y=" << pos.y << std::endl;
-    }
-  Simulator::Schedule (Seconds (1.0), &AdvancePosition, node);
-}
-
-//static void
-//FlyPosition (Ptr<Node> node)
-//{
-//  Vector pos = GetPosition (node);
-//  pos.x = 240.0;
-//  pos.y = 240.0;
-//
-//  SetPosition (node, pos);
-//}
-
-void
-ChangeDefautGateway (Ptr<Node> node, Ipv4Address gateway, uint32_t interface)
-{
-  // set defaut route for MN (in WiFi networks)
-  Ipv4StaticRoutingHelper ipv4SrHelper;
-  Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
-  Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->RemoveRoute (2);
-  ipv4Stat->SetDefaultRoute (gateway, interface);
-  Ptr<OutputStreamWrapper> stream1 = Create<OutputStreamWrapper> (
-      "Static Routing Table for MN", std::ios::out);
-  ipv4Stat->PrintRoutingTable (stream1);
-}
-
-void
-AdjustStaticRoutingTable (NodeContainer c)
-{
-  // set defaut route for MN (in WiFi networks)
-  Ipv4StaticRoutingHelper ipv4SrHelper;
-  Ptr<Ipv4> ipv4 = c.Get (0)->GetObject<Ipv4> ();
-  Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  // Do not forget to remove previously set default gateway
-  ipv4Stat->RemoveRoute (2);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.1.3"), 1);
-
-  ipv4 = c.Get (5)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  // For node 5, to go to 10.1.1.0/24. It should pass through xTR2, from interface 2, next hop is 10.1.3.1
-  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.1.0"),
-			       Ipv4Mask ("255.255.255.0"),
-			       Ipv4Address ("10.1.3.1"), 2, 0);
-
-  Ptr<OutputStreamWrapper> stream1 = Create<OutputStreamWrapper> (
-      "Static Routing Table for MN", std::ios::out);
-  ipv4Stat->PrintRoutingTable (stream1);
 }
 
 void
@@ -196,18 +79,6 @@ PrintLocations (NodeContainer nodes, std::string header)
       Vector pos = position->GetPosition ();
       std::cout << "(" << pos.x << ", " << pos.y << ", " << pos.z << ")"
 	  << std::endl;
-    }
-  std::cout << std::endl;
-}
-
-void
-PrintAddresses (Ipv4InterfaceContainer container, std::string header)
-{
-  std::cout << header << std::endl;
-  uint32_t nNodes = container.GetN ();
-  for (uint32_t i = 0; i < nNodes; ++i)
-    {
-      std::cout << container.GetAddress (i, 0) << std::endl;
     }
   std::cout << std::endl;
 }
@@ -237,9 +108,9 @@ InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoClientNode,
   // Get @ip for net device of node and use it to initialize echo client
   //UdpEchoClientHelper echoClient(i3i4.GetAddress(1), 9);
   UdpEchoClientHelper echoClient (echoServerIpAddr, port);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (2000));
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (100));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (1)));
-  echoClient.SetAttribute ("PacketSize", UintegerValue (100));
+  echoClient.SetAttribute ("PacketSize", UintegerValue (20));
   // Install echo client app at node 0
   ApplicationContainer clientApps = echoClient.Install (echoClientNode);
   clientApps.Start (start);
@@ -329,23 +200,6 @@ InstallDhcpClientApplication (Ptr<Node> node, uint32_t device, Time start,
   ap_dhcp_client.Stop (end);
 }
 
-void
-EnablePhyMacTraces ()
-{
-  //TODO I don't know what the following instructions want to do...
-  Config::Connect ("/NodeList/*/DeviceList/*/Mac/MacTx",
-		   MakeCallback (&DevTxTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Mac/MacRx",
-		   MakeCallback (&DevRxTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/RxOk",
-		   MakeCallback (&PhyRxOkTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/RxError",
-		   MakeCallback (&PhyRxErrorTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/Tx",
-		   MakeCallback (&PhyTxTrace));
-  Config::Connect ("/NodeList/*/DeviceList/*/Phy/State/State",
-		   MakeCallback (&PhyStateTrace));
-}
 
 void
 InstallLispRouter (NodeContainer nodes)
@@ -405,82 +259,13 @@ InstallXtrApplication(NodeContainer nodes, Ipv4Address mrAddress,
 }
 
 void
-PopulateStaticRoutingTable (NodeContainer c)
-{
-  // No need to set default route for MN (in WiFi networks) in presence of DHCP server
-
-  // Populate routing table for xTR1
-  Ipv4StaticRoutingHelper ipv4SrHelper;
-  Ptr<Ipv4> ipv4 = c.Get (1)->GetObject<Ipv4> ();
-  Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.2.2"), 1);
-
-  // For xTR2 (node 2)
-  ipv4 = c.Get (2)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.3.2"), 1);
-
-  // For xTR3 (node 3)
-  ipv4 = c.Get (3)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.5.1"), 1);
-
-  // For CN (node 4)
-  ipv4 = c.Get (4)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.3.1"), 1);
-
-  // For intermediate router node 5
-  ipv4 = c.Get (5)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  //ipv4Stat->AddNetworkRouteTo(Ipv4Address ("10.1.1.0"), Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.1.2.1"), 1, 0);
-  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.6.0"),
-			       Ipv4Mask ("255.255.255.0"),
-			       Ipv4Address ("10.1.4.2"), 3, 0);
-  //ipv4Stat->AddNetworkRouteTo(Ipv4Address ("10.3.3.0"), Ipv4Mask ("255.255.255.0"), Ipv4Address ("10.1.5.2"), 4, 0);
-
-  // For MR,(node 6)
-  ipv4 = c.Get (6)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.4.1"), 1);
-
-  // For MS (node 7)
-  ipv4 = c.Get (7)->GetObject<Ipv4> ();
-  ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.6.1"), 1);
-}
-
-void
 PopulateStaticRoutingTable2 (NodeContainer c)
 {
-  // Static Routing Table without DHCP
+  // In reference case, i.e. no LISP mobility and no DHCP, set Static Routing Table for MN
   Ipv4StaticRoutingHelper ipv4SrHelper;
   Ptr<Ipv4> ipv4 = c.Get (0)->GetObject<Ipv4> ();
   Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-//	ipv4Stat->SetDefaultRoute(Ipv4Address("10.1.1.254"), 1);
-//  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.2.0"),
-//			       Ipv4Mask ("255.255.255.0"),
-//			       Ipv4Address ("10.1.1.254"), 1, 0);
-//  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.3.0"),
-//			       Ipv4Mask ("255.255.255.0"),
-//			       Ipv4Address ("10.1.1.254"), 1, 0);
-//  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.4.0"),
-//			       Ipv4Mask ("255.255.255.0"),
-//			       Ipv4Address ("10.1.1.254"), 1, 0);
-//  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.5.0"),
-//			       Ipv4Mask ("255.255.255.0"),
-//			       Ipv4Address ("10.1.1.254"), 1, 0);
-//  ipv4Stat->AddNetworkRouteTo (Ipv4Address ("10.1.6.0"),
-//			       Ipv4Mask ("255.255.255.0"),
-//			       Ipv4Address ("10.1.1.254"), 1, 0);
-
-//	// IP route for DHCP request
-//	ipv4Stat->AddHostRouteTo(Ipv4Address("255.255.255.255"), 1);
-  //TODO: Should automatically to find the interface index for TUN device.
-  ipv4Stat->AddNetworkRouteTo(Ipv4Address("0.0.0.0"), Ipv4Mask("/1"), 2);
-  ipv4Stat->AddNetworkRouteTo(Ipv4Address("128.0.0.0"), Ipv4Mask("/1"), 2);
-//  ipv4Stat->AddNetworkRouteTo(Ipv4Address("10.1.4.0"), Ipv4Mask("/24"), 1, 100);
-//  ipv4Stat->AddNetworkRouteTo(Ipv4Address("10.1.6.0"), Ipv4Mask("/24"), 1, 100);
+  ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.1.254"), 1);
 
   // Populate routing table for xTR1
   ipv4 = c.Get (1)->GetObject<Ipv4> ();
@@ -527,43 +312,6 @@ PopulateStaticRoutingTable2 (NodeContainer c)
   ipv4Stat->SetDefaultRoute (Ipv4Address ("10.1.6.1"), 1);
 }
 
-class Fuck
-{
-  Ptr<VirtualNetDevice> m_n0Tap;
-  Ptr<NetDevice> m_netDve;
-
-  bool
-  TapVirtualSend (Ptr<Packet> packet, const Address& source,
-		  const Address& dest, uint16_t protocolNumber)
-  {
-  	/**
-  	 * Surprisingly, the input parameter is already a IP packet (with double encapsulation!!!)
-  	 */
-    NS_LOG_DEBUG("Transmitted packet(I want to know the packet is IP or Ethernet or Wifi): " << *packet);
-    m_netDve->Send (packet, dest, protocolNumber);
-    return true;
-  }
-
-  //TODO: Maybe should set receive callback? for
-
-public:
-  Fuck (Ptr<VirtualNetDevice> n0Tap, Ptr<NetDevice> netDve) :
-      m_n0Tap (n0Tap), m_netDve (netDve)
-  {
-    m_n0Tap->SetSendCallback (MakeCallback (&Fuck::TapVirtualSend, this));
-  }
-
-};
-
-bool
-TapVirtualSend (Ptr<Packet> packet, const Address& source, const Address& dest,
-		uint16_t protocolNumber, Ptr<NetDevice> netD)
-{
-  //NS_LOG_DEBUG("The content of packet: "<< *packet);
-  netD->Send (packet, dest, protocolNumber);
-  return true;
-}
-
 void
 CreateAnimFile (NodeContainer c, std::string animFile)
 {
@@ -592,6 +340,78 @@ CreateAnimFile (NodeContainer c, std::string animFile)
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), Seconds (10)); // Optional
 }
 
+// Copy from: https://groups.google.com/forum/#!topic/ns-3-users/-BnPRmJwcGs
+void
+ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, Gnuplot2dDataset DataSet)
+{
+	double localThrou=0;
+	flowMon->CheckForLostPackets ();
+	std::map<FlowId, FlowMonitor::FlowStats> flowStats = flowMon->GetFlowStats ();
+	Ptr<Ipv4FlowClassifier> classing = DynamicCast<Ipv4FlowClassifier> (
+			fmhelper->GetClassifier ());
+	std::cout <<std::endl;
+	std::cout <<std::endl;
+	std::cout <<std::endl;
+	std::cout << "Call ThroughputmMonitor method at "<<Simulator::Now().GetSeconds() << " second."<<std::endl;
+	;
+	for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator stats =
+			flowStats.begin (); stats != flowStats.end (); ++stats)
+
+		{
+
+
+			Ipv4FlowClassifier::FiveTuple fiveTuple = classing->FindFlow (
+					stats->first);
+//			if (
+//			/**
+//			 * The traffic flow is defined as the set of all packets that have the same file tuples.
+//			 * We use the ACK traffic flow from remote CN to LISP-MN to analyze the instantaneous throughput.
+//			 * The reason are two-fold:
+//			 * 1) Originally, flow monitor only counts with the outer IP header. To count the inner IP header
+//			 * needs some work.
+//			 * 2) Before and after handover, the outer IP header has different source IP address
+//			 */
+//
+////				Comment the following two lines. Maybe useful in the future.
+//			(fiveTuple.sourceAddress == "10.3.3.2" && fiveTuple.destinationAddress == "10.1.1.1")
+//					or
+//			(fiveTuple.sourceAddress == "10.1.7.2"
+//					&& fiveTuple.destinationAddress == "10.1.5.2")
+//			)
+				{
+					std::cout << "Flow ID			: " << stats->first << " ; "
+							<< fiveTuple.sourceAddress <<":"<< fiveTuple.sourcePort<<" -----> "
+							<< fiveTuple.destinationAddress << ":"<< fiveTuple.destinationPort<<std::endl;
+					std::cout << "Tx Bytes		: " << stats->second.txBytes << "\n";
+					std::cout << "Tx Packets		: " << stats->second.txPackets << "\n";
+					std::cout << "Rx Bytes		: " << stats->second.rxBytes << "\n";
+					std::cout << "Rx Packets		: " << stats->second.rxPackets << "\n";
+					std::cout << "Duration		: "
+							<< stats->second.timeLastRxPacket.GetSeconds ()
+									- stats->second.timeFirstTxPacket.GetSeconds () << std::endl;
+					std::cout << "Last Received Packet	: "
+							<< stats->second.timeLastRxPacket.GetSeconds () << " Seconds"
+							<< std::endl;
+					std::cout << "Throughput		: "
+							<< stats->second.rxBytes * 8.0
+									/ (stats->second.timeLastRxPacket.GetSeconds ()
+											- stats->second.timeFirstTxPacket.GetSeconds ()) / 1024
+									/ 1024 << " Mbps" << std::endl;
+
+          localThrou=(stats->second.rxBytes * 8.0 / (stats->second.timeLastRxPacket.GetSeconds()-stats->second.timeFirstTxPacket.GetSeconds())/1024/1024);
+
+					std::cout
+							<< "---------------------------------------------------------------------------"
+							<< std::endl;
+
+				}
+
+		}
+	flowMon->SerializeToXmlFile ("lisp-reference.flowmon", true, true);
+  DataSet.Add((double)Simulator::Now().GetSeconds(),(double) localThrou);
+	Simulator::Schedule (Seconds (1), &ThroughputMonitor, fmhelper, flowMon, DataSet);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -600,8 +420,9 @@ main (int argc, char *argv[])
 	 * ./waf --run "lisp_mobility_between_subnet --dhcp-collect=0.7 --wifi-beacon-interval=0.2 --map-search-time=0.4"
 	 *
 	 */
-  LogComponentEnable ("LispMobilityBetweenNetwork", LOG_LEVEL_ALL);
+  LogComponentEnable ("LispReference", LOG_LEVEL_ALL);
   CommandLine cmd;
+  bool g_verbose = true;
   float dhcp_collect = 1.0;
   float wifiBeaconInterval = 0.2;
   float mappingSearchTime = 0.4; //unit second
@@ -611,88 +432,11 @@ main (int argc, char *argv[])
   cmd.AddValue ("map-search-time", "Time consumed for EID-RLOC mapping search in map server", mappingSearchTime);
 
   cmd.Parse (argc, argv);
-  g_verbose = true;
-  if (g_verbose)
-    {	//TODO: Add Log Component for lisp-related class.
-      LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
-//      LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
-//      LogComponentEnable ("DhcpClient", LOG_LEVEL_ALL);
-//      LogComponentEnable ("DhcpClient", LOG_PREFIX_ALL);
-//      LogComponentEnable ("DhcpServer", LOG_LEVEL_ALL);
-//      LogComponentEnable ("DhcpServer", LOG_PREFIX_ALL);
-//      LogComponentEnable("SimpleMapTables", LOG_LEVEL_DEBUG);
 
-      //For LispOverIp
-      LogComponentEnable ("Ipv4StaticRouting", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("Ipv4StaticRouting", LOG_PREFIX_ALL);
-      LogComponentEnable ("Ipv4ListRouting", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("Ipv4ListRouting", LOG_PREFIX_ALL);
-      LogComponentEnable ("Ipv4RoutingProtocol", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("Ipv4RoutingProtocol", LOG_PREFIX_ALL);
-
-      LogComponentEnable ("VirtualNetDevice", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("VirtualNetDevice", LOG_PREFIX_ALL);
-
-      LogComponentEnable ("UdpSocketImpl", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("UdpSocketImpl", LOG_PREFIX_ALL);
-
-      LogComponentEnable ("UdpL4Protocol", LOG_LEVEL_DEBUG);
-      LogComponentEnable ("UdpL4Protocol", LOG_PREFIX_ALL);
-
-
-
-//	LogComponentEnable ("WifiNetDevice", LOG_LEVEL_ALL);
-//	LogComponentEnable ("WifiNetDevice", LOG_PREFIX_ALL);
-//	LogComponentEnable ("StaWifiMac", LOG_LEVEL_ALL);
-//	LogComponentEnable ("StaWifiMac", LOG_PREFIX_ALL);
-
-      //For LispOverIp
-//      LogComponentEnable ("LispOverIp", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispOverIp", LOG_PREFIX_ALL);
-//      LogComponentEnable ("LispOverIpv4Impl", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispOverIpv4Impl", LOG_PREFIX_ALL);
-      //For LispEtrItrApplication
-      LogComponentEnable ("LispEtrItrApplication", LOG_LEVEL_ALL);
-      LogComponentEnable ("LispEtrItrApplication", LOG_PREFIX_ALL);
-//      LogComponentEnable ("LispEtrItrAppHelper", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispEtrItrAppHelper", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("MapServerDdt", LOG_LEVEL_ALL);
-//      LogComponentEnable ("MapServerDdt", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("SimpleMapTables", LOG_LEVEL_ALL);
-//      LogComponentEnable ("SimpleMapTables", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("Ipv4RawSocketImpl", LOG_LEVEL_ALL);
-//      LogComponentEnable ("Ipv4RawSocketImpl", LOG_PREFIX_ALL);
-//
-      LogComponentEnable ("Ipv4L3Protocol", LOG_LEVEL_ALL);
-      LogComponentEnable ("Ipv4L3Protocol", LOG_PREFIX_ALL);
-      LogComponentEnable ("Ipv4Interface", LOG_LEVEL_ALL);
-      LogComponentEnable ("Ipv4Interface", LOG_PREFIX_ALL);
-
-//      LogComponentEnable ("LispHelper", LOG_LEVEL_ALL);
-//      LogComponentEnable ("LispHelper", LOG_PREFIX_ALL);
-
-
-
-
-    }
-  bool mapSocketAddressLog = true;
-  if (mapSocketAddressLog)
-    {
-      //For MappingSocketAddress
-//		LogComponentEnable("LispMappingSocket", LOG_LEVEL_DEBUG);
-//		LogComponentEnable("LispMappingSocket", LOG_PREFIX_ALL);
-//		LogComponentEnable("MappingSocketAddress", LOG_LEVEL_DEBUG);
-//		LogComponentEnable("MappingSocketAddress", LOG_PREFIX_ALL);
-    }
-
-  std::string animFile = "lisp-mobility-between-subnet.xml"; // Name of file for animation output
+  std::string animFile = "lisp-reference.xml"; // Name of file for animation output
   Packet::EnablePrinting ();
 
-  // enable rts cts all the time.
+  // enable rts/cts all the time.
   Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold",
 		      StringValue ("2200"));
   // disable fragmentation
@@ -817,33 +561,9 @@ main (int argc, char *argv[])
   uint32_t ifIndex1 = ipv4MN->AddInterface (mnDevs.Get (0));
   ipv4MN->AddAddress (
       ifIndex1,
-      Ipv4InterfaceAddress (Ipv4Address ("0.0.0.0"), Ipv4Mask ("/0")));
+      Ipv4InterfaceAddress (Ipv4Address ("10.1.1.1"), Ipv4Mask ("/0")));
   ipv4MN->SetForwarding (ifIndex1, true);
   ipv4MN->SetUp (ifIndex1);
-  /**
-   * Set TUN/TAP device for LISP-MN node
-   * A question: for tap, we need to care about Ethernet header or not?
-   */
-  Address lispMnEidAddr = Ipv4Address ("172.16.0.1");
-  Ptr<VirtualNetDevice> m_n0Tap = CreateObject<VirtualNetDevice> ();
-  m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
-  c.Get (0)->AddDevice (m_n0Tap);
-  Ptr<Ipv4> ipv4Tun = c.Get (0)->GetObject<Ipv4> ();
-  uint32_t ifIndexTap = ipv4Tun->AddInterface (m_n0Tap);
-  ipv4Tun->AddAddress (
-      ifIndexTap,
-      Ipv4InterfaceAddress (Ipv4Address::ConvertFrom(lispMnEidAddr),
-			    Ipv4Mask ("255.255.255.255")));
-  ipv4Tun->SetForwarding (ifIndexTap, true);
-  ipv4Tun->SetUp (ifIndexTap);
-
-
-  /**
-   * It is obligatory to set TransmitCallBack for virtual-net-device.
-   * Otherwise when transmitting packet, virtual-net-device does not know what to do,
-   * because it has not a physical NIC.
-   */
-  Fuck fuck (m_n0Tap, mnDevs.Get (0));
 
   /*
    * Assign a unique address: 10.1.1.254 for wifi net device on xTR1
@@ -911,51 +631,46 @@ main (int argc, char *argv[])
   mobility.Install (c);
   PrintLocations (c, "Location of all nodes");
 
-//  Simulator::Schedule(Seconds(10), &AdvancePosition, mn.Get(0));
-//  Simulator::Schedule(Seconds(20), &FlyPosition, xTR1.Get(0));
-
-
   Time END_T = Seconds (40);
   Time ECO_END_T = Seconds (45.5);
-  Time START_T = Seconds (1.0);
+  Time START_T = Seconds (5.0);
 
   /*
    * Now use DHCP server to allocate @Ip for MN
    * Due to DHCP program implementation constraint, we have to first assign a 0.0.0.0/0 for DHCP client
    */
-  NS_LOG_INFO("Start DHCP server...");
-  InstallDhcpServerApplication (c.Get (1), Ipv4Address ("10.1.1.0"),
-				Ipv4Mask ("/24"), ap1Interface.GetAddress (0),
-				Ipv4Address ("10.1.1.0"),
-				Ipv4Address ("10.1.1.252"),
-				ap1Interface.GetAddress (0), Seconds (0.0),
-				END_T);
-  InstallDhcpServerApplication (c.Get (2), Ipv4Address ("10.1.7.0"),
-				Ipv4Mask ("/24"), ap2Interface.GetAddress (0),
-				Ipv4Address ("10.1.7.0"),
-				Ipv4Address ("10.1.7.252"),
-				ap2Interface.GetAddress (0), Seconds (0.0),
-				END_T);
+//  NS_LOG_INFO("Start DHCP server...");
+//  InstallDhcpServerApplication (c.Get (1), Ipv4Address ("10.1.1.0"),
+//				Ipv4Mask ("/24"), ap1Interface.GetAddress (0),
+//				Ipv4Address ("10.1.1.0"),
+//				Ipv4Address ("10.1.1.252"),
+//				ap1Interface.GetAddress (0), Seconds (0.0),
+//				END_T);
+//  InstallDhcpServerApplication (c.Get (2), Ipv4Address ("10.1.7.0"),
+//				Ipv4Mask ("/24"), ap2Interface.GetAddress (0),
+//				Ipv4Address ("10.1.7.0"),
+//				Ipv4Address ("10.1.7.252"),
+//				ap2Interface.GetAddress (0), Seconds (0.0),
+//				END_T);
   //Install DHCP client app at MN (i.e. node 0), has to be runned at the beginning...
   //ATTENTIO!!!: if use DHCP mode, you have to used the second static routing conf...!!!
-  NS_LOG_INFO("Start DHCP client at MN...");
-  InstallDhcpClientApplication (c.Get (0), 1, Seconds (0.0), END_T);
+//  NS_LOG_INFO("Start DHCP client at MN...");
+//  InstallDhcpClientApplication (c.Get (0), 1, Seconds (0.0), END_T);
 
 //	InstallOnOffApplication(c.Get(4), c.Get(0), i3i4.GetAddress(1), 9, START_T, END_T); // Discard port (RFC 863)
-//  InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
-//			  ECO_END_T); // Discard port (RFC 863)
-
-  InstallTcpBulkSendApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
+  InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
 			  ECO_END_T); // Discard port (RFC 863)
+
+//  InstallTcpBulkSendApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
+//			  ECO_END_T); // Discard port (RFC 863)
 
   // Make xTR1&2&3 as lisp-supported routers
   Ipv4Address msAddr = i6i7.GetAddress (1);
   Ipv4Address mrAddr = i5i6.GetAddress (1);
 //  NodeContainer lispRouters = NodeContainer (c.Get(0), c.Get (1), c.Get (2), c.Get (3), c.Get(6), c.Get(7));
 //  NodeContainer xTRNodes = NodeContainer(c.Get(0), c.Get (1), c.Get (2), c.Get (3));
-  NodeContainer lispRouters = NodeContainer (c.Get(0), c.Get (1), c.Get (3), c.Get(6), c.Get(7));
-  lispRouters.Add(c.Get(2));
-  NodeContainer xTRNodes = NodeContainer(c.Get(0), c.Get (1), c.Get (2), c.Get (3));
+  NodeContainer lispRouters = NodeContainer (c.Get (1), c.Get(2), c.Get (3), c.Get(6), c.Get(7));
+  NodeContainer xTRNodes = NodeContainer(c.Get (1), c.Get (2), c.Get (3));
 //  NodeContainer xTRNodes2 = NodeContainer();
   // MR/MS are also lisp-speaking devices => install lisp but no xTR app. Instead mr/ms app.
   InstallLispRouter (lispRouters);
@@ -971,27 +686,20 @@ main (int argc, char *argv[])
 
   AsciiTraceHelper ascii;
   p2p.EnableAsciiAll (
-      ascii.CreateFileStream ("lisp-mobility-between-subnet.tr"));
-  wifiPhy.EnableAscii(ascii.CreateFileStream ("lisp-mn.tr"), 0, 1);
+      ascii.CreateFileStream ("lisp-reference.tr"));
+  wifiPhy.EnableAscii(ascii.CreateFileStream ("lisp-reference.tr"), 0, 1);
 
-  wifiPhy.EnablePcapAll ("lisp-mobility-between-subnet-wifi", true);
+  wifiPhy.EnablePcapAll ("lisp-reference-wifi", true);
 //  wifiPhy.EnablePcap("lisp-mobility-between-subnet-wifi2", m_n0Tap);
-  p2p.EnablePcapAll ("lisp-mobility-between-subnet");
+  p2p.EnablePcapAll ("lisp-reference-p2p");
   MobilityHelper::EnableAsciiAll (
-      ascii.CreateFileStream ("lisp-mobility-between-subnet.mob"));
+      ascii.CreateFileStream ("lisp-reference.mob"));
 
 
-  Names::Add("lisp-mn-ipv4", c.Get(0)->GetObject<Ipv4>());
+  Names::Add("lisp-reference-ipv4", c.Get(0)->GetObject<Ipv4>());
 
-  internet.EnableAsciiIpv4("ipv4-trace-lisp-mn.tr", "lisp-mn-ipv4", 1);
+  internet.EnableAsciiIpv4("ipv4-trace-lisp-reference.tr", "lisp-reference-ipv4", 1);
 
-  // Flow Monitor
-  FlowMonitorHelper flowmonHelper;
-  if (true)
-    {
-      flowmonHelper.InstallAll ();
-      flowmonHelper.SerializeToXmlFile("test.flowmon", false, false);
-    }
   //CreateAnimFile(c, animFile);
   AnimationInterface anim (animFile);
   anim.SetConstantPosition (c.Get (0), 0, 110);
@@ -1005,16 +713,58 @@ main (int argc, char *argv[])
   anim.SetMobilityPollInterval (Seconds (0.25));
   anim.EnablePacketMetadata (true); // Optional
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), END_T); // Optional
-  anim.EnableIpv4RouteTracking ("lisp-mobility-routing-table-case2.xml",
+  anim.EnableIpv4RouteTracking ("lisp-reference-routing-table.xml",
 				Seconds (0), END_T, Seconds (0.25));
 
+  // Gnuplot parameters
+	std::string fileNameWithNoExtension = "lisp-reference-throughput-vs-time";
+	std::string graphicsFileName = fileNameWithNoExtension + ".png";
+	std::string plotFileName = fileNameWithNoExtension + ".plt";
+	std::string plotTitle = "Instantaneous Throughput";
+	std::string dataTitle = "lisp-reference-tcp-throughput";
 
+	// Instantiate the plot and set its title.
+	Gnuplot gnuplot (graphicsFileName);
+	gnuplot.SetTitle (plotTitle);
 
+	// Make the graphics file, which the plot file will be when it
+	// is used with Gnuplot, be a PNG file.
+	gnuplot.SetTerminal ("png");
+
+	// Set the labels for each axis.
+	gnuplot.SetLegend ("Time/Seconds", "Throughput/Mbps");
+
+	Gnuplot2dDataset dataset;
+	dataset.SetTitle (dataTitle);
+	dataset.SetStyle (Gnuplot2dDataset::POINTS);
+
+	//------Throughput Monitor--------------------------------------------------------------------------------------
+	FlowMonitorHelper fmHelper;
+	NodeContainer flowmon_nodes;
+	flowmon_nodes.Add (mn);
+	flowmon_nodes.Add (c.Get (4));
+  Ptr<FlowMonitor> allMon = fmHelper.Install(flowmon_nodes);
+	//*
+//	allMon->SetAttribute ("DelayBinWidth", DoubleValue (0.001));
+//	allMon->SetAttribute ("JitterBinWidth", DoubleValue (0.001));
+//	allMon->SetAttribute ("PacketSizeBinWidth", DoubleValue (20));
+	//*/
+  ThroughputMonitor(&fmHelper, allMon, dataset);
 
   NS_LOG_INFO("Run Simulation.");
   // Set stop time before run simulation.
   Simulator::Stop (END_T);
   Simulator::Run ();
+
+	//Gnuplot ...continued
+	gnuplot.AddDataset (dataset);
+	// Open the plot file.
+	std::ofstream plotFile (plotFileName.c_str ());
+	// Write the plot file.
+	gnuplot.GenerateOutput (plotFile);
+	// Close the plot file.
+	plotFile.close ();
+
   NS_LOG_INFO("Simulation Done.");
   Simulator::Destroy ();
 
