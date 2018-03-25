@@ -12,6 +12,9 @@
 #include "ns3/mac48-address.h"
 #include "ns3/channel.h"
 #include "ns3/ipv4-static-routing-helper.h"
+#include "ns3/ipv4-l3-protocol.h"
+#include "ns3/lisp-over-ipv4.h"
+#include "ns3/simple-map-tables.h"		//to support LISP&LISP-MN
 
 #include "ns3/ipv4.h"
 
@@ -295,7 +298,7 @@ namespace ns3
 	TunNetDevice::Send (Ptr<Packet> packet, const Address& dest, uint16_t protocolNumber)
 	{
 		/**
-		 * Upate, 02-03-2018, Qipeng
+		 * Update, 02-03-2018
 		 * The send method of this TUN device will call the send method of IP protocol (Ipv4 or Ipv6)
 		 * The signature:
 		 * Ipv4L3Protocol::Send(
@@ -315,30 +318,54 @@ namespace ns3
 		 * I guess it is a MAC address, but we don't care its value since the implementation of this method will call
 		 * Ip send method which will can call send method of WifiNetDevice. WifiNetDevice is in charge of searching
 		 * `dst`
+		 *
+		 * Update, 03-24-2018
+		 * After rethinking, I think the keys points to rely on TUN device to implement LISP encapsulation are:
+		 *    1) parameter `packet` received by this method has an IP header with `src` of EID and `dst` of remote CN,
+		 *    this is due to the routing table configuration.
+		 * 		2) `Send` method should finally invoke LispOverIpv4Impl::LispOutput method (i.e. Ipv4L3Protocol::Send method)
+		 * 		3) parameter `src` of `Send` method should be the IP address of real `NetDevice` (e.g. `WifiNetDevice`)
+		 * 		4) parameter `dst` of `Send` method should be `dst` of the IP header of parameter `packet`
+		 * 		5) parameter `oif` (i.e. Output NetDevice index) should not be the default value, it should always be 1.
+		 * 		because index 0 is for Loopback device, index 1 is for the first added net device. TUN device has index
+		 * 		of 2. Be careful, we don't care about the case of multiple net device. (TODO)
+		 * 		6) Don't forget to adjust `GetTunIndex` method of DHCP Client. It should verify if the net device type
+		 * 		is 'TunNetDevice'
+		 *
+		 * Update, 03-24-2018
+		 * Recall the packet transmission process:
+		 * A packet from socket -> route selection -> Ipv4L3Protocol::Send -> LispOutput -> Ipv4L3Protocol:SendWithHeader
+		 * Thus, the packet down to TUN device has already outer and inner IP header.
+		 * We just need invoke Ipv4L3Protocol::SendWithHeader but with route related to real NIC.
+		 * Why do not use callback to assoicate TUN device's Send and that of real NIC?
+		 * Because I doubt this leads to duplicated transmission in Wireshark file.
 		 */
+
 		NS_LOG_FUNCTION ( this << packet << dest << protocolNumber << "TUN needs to send...");
 	  m_macTxTrace (packet);
+
 	  Ipv4Header iph;
-	  packet->PeekHeader (iph);
+	  packet->RemoveHeader (iph);
+	  Ipv4Address src, dst;
+	  src = iph.GetSource();
+	  dst = iph.GetDestination();
+	  NS_LOG_DEBUG ("Source IPv4 Address of received packet: "<<src<<" and destination IPv4 address: "<< dst);
+
 	  Socket::SocketErrno err;
 	  Ptr<Ipv4> ipv4 = m_node->GetObject<Ipv4>();
 	  Ipv4StaticRoutingHelper ipv4RoutingHelper;
-	  ipv4->GetRoutingProtocol();
 	  Ptr<Ipv4StaticRouting> staticRouting = ipv4RoutingHelper.GetStaticRouting (ipv4);
-	  Ptr<Ipv4Route> defaultRoute = staticRouting->RouteOutput(packet, iph, m_RealDev, err);
+	  /**
+	   * By default, the parameter `oif`of RouteOutput is 0. However, within this send method,
+	   * we want that the route is related to the real NIC.
+	   * For the parameter `header`, we can still use the the peeked one
+	   */
+	  Ptr<Ipv4Route> route = staticRouting->RouteOutput(packet, iph, m_RealDev, err);
 
-//	  ipv4->Send(Ptr<Packet> packet,
-//               Ipv4Address source,
-//               Ipv4Address destination,
-//               uint8_t protocol,
-//               Ptr<Ipv4Route> route);
-//	  if (m_sendCb (packet, GetAddress (), dest, protocolNumber))
-		if (m_sendCb (packet, dest, protocolNumber))
+	  NS_LOG_DEBUG("TUN device use route: "<<*route);
+    ipv4->SendWithHeader(packet, iph, route);
 
-	    {
-	      return true;
-	    }
-	  return false;
+    return true;
 	}
 
 	bool

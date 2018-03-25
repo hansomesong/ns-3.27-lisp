@@ -802,7 +802,11 @@ namespace ns3
       {
 	Ptr<NetDevice> curDev = GetNode ()->GetDevice (tunDeviceIndex);
 	// Be careful with compare() method.
-	if (curDev->GetInstanceTypeId ().GetName () == "ns3::VirtualNetDevice")
+	if (
+			(curDev->GetInstanceTypeId ().GetName () == "ns3::VirtualNetDevice")
+			or
+			(curDev->GetInstanceTypeId ().GetName () == "ns3::TunNetDevice")
+			)
 	  {
 	    NS_LOG_DEBUG("TUN device index: "<<unsigned(tunDeviceIndex));
 	    NS_LOG_DEBUG(

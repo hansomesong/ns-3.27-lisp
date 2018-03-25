@@ -796,7 +796,7 @@ Ipv4L3Protocol::Send (Ptr<Packet> packet,
 	// lisp procedure will executed.
 	if(route)
 		{
-			NS_LOG_DEBUG("The content of received Ipv4 route: "<<*route);
+			//NS_LOG_DEBUG("The content of received Ipv4 route: "<<*route);
 		}
 	else{
 			NS_LOG_DEBUG("No route is given as input parameter!");

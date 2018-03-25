@@ -39,9 +39,82 @@
 #include "ns3/virtual-net-device.h"
 #include "ns3/callback.h"
 
+// for GNUPlot and instantaneous throughput
+#include "ns3/gnuplot.h"
+#include "ns3/flow-monitor-module.h"
+#include "ns3/flow-monitor-helper.h"
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("LispMobilityBetweenNetwork");
+static uint64_t lastTotalRx = 0;
+// Copy from: https://groups.google.com/forum/#!topic/ns-3-users/-BnPRmJwcGs
+void
+ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, Gnuplot2dDataset DataSet)
+//ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon)
+
+{
+	double localThrou=0;
+	flowMon->CheckForLostPackets ();
+	std::map<FlowId, FlowMonitor::FlowStats> flowStats = flowMon->GetFlowStats ();
+	Ptr<Ipv4FlowClassifier> classing = DynamicCast<Ipv4FlowClassifier> (
+			fmhelper->GetClassifier ());
+	std::cout <<std::endl;
+	std::cout <<std::endl;
+	std::cout <<std::endl;
+	std::cout << "Call ThroughputmMonitor method at "<<Simulator::Now().GetSeconds() << " second."<<std::endl;
+	;
+	for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator stats =
+			flowStats.begin (); stats != flowStats.end (); ++stats)
+		{
+			Ipv4FlowClassifier::FiveTuple fiveTuple = classing->FindFlow (
+					stats->first);
+			if (
+//			/**
+//			 * The traffic flow is defined as the set of all packets that have the same file tuples.
+//			 * We use the ACK traffic flow from remote CN to LISP-MN to analyze the instantaneous throughput.
+//			 * The reason are two-fold:
+//			 * 1) Originally, flow monitor only counts with the outer IP header. To count the inner IP header
+//			 * needs some work.
+//			 * 2) Before and after handover, the outer IP header has different source IP address
+//			 */
+//
+////				Comment the following two lines. Maybe useful in the future.
+			(fiveTuple.sourceAddress == "10.3.3.2" && fiveTuple.destinationAddress == "172.16.0.1")
+//					or
+//			(fiveTuple.sourceAddress == "10.1.7.1"
+//					&& fiveTuple.destinationAddress == "10.1.5.2")
+//					or
+//			(fiveTuple.sourceAddress == "176.16.0.1"
+//					&& fiveTuple.destinationAddress == "10.3.3.2")
+			)
+				{
+
+					std::cout << "Flow ID			: " << stats->first << " ; "
+							<< fiveTuple.sourceAddress << " -----> "
+							<< fiveTuple.destinationAddress << std::endl;
+					std::cout << "Tx Bytes		: " << stats->second.txBytes << "\n";
+					std::cout << "Rx Bytes		: " << stats->second.rxBytes << "\n";
+					std::cout << "Duration		: "
+							<< stats->second.timeLastRxPacket.GetSeconds ()
+									- stats->second.timeFirstTxPacket.GetSeconds () << std::endl;
+					std::cout << "Last Received Packet	: "
+							<< stats->second.timeLastRxPacket.GetSeconds () << " Seconds"
+							<< std::endl;
+//          localThrou=(stats->second.rxBytes * 8.0 / (stats->second.timeLastRxPacket.GetSeconds()-stats->second.timeFirstTxPacket.GetSeconds())/1024/1024);
+          localThrou=((stats->second.rxBytes - lastTotalRx) * 8.0 /0.2/1024/1024);
+          std::cout << "Throughput		: "
+							<< localThrou << " Mbps" << std::endl;
+					std::cout
+							<< "---------------------------------------------------------------------------"
+							<< std::endl;
+					lastTotalRx = stats->second.rxBytes;
+				}
+		}
+	flowMon->SerializeToXmlFile ("lisp-mobility.flowmon", true, true);
+  DataSet.Add((double)Simulator::Now().GetSeconds(),(double) localThrou);
+	Simulator::Schedule (Seconds (0.2), &ThroughputMonitor, fmhelper, flowMon, DataSet);
+}
 
 bool
 Fuck::TapVirtualSend (Ptr<Packet> packet, const Address& source,
@@ -165,6 +238,33 @@ Simulation3::InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoCli
   clientApps.Start (start);
   clientApps.Stop (end);
 }
+
+void
+Simulation3::InstallTcpBulkSendApplication (Ptr<Node> echoServerNode,
+																						Ptr<Node> echoClientNode,
+																						Ipv4Address echoServerIpAddr,
+																						uint16_t port, Time start, Time end)
+{
+	// Make node 4 as bulk send receiver, listening port 9
+	// Create a socket pointing to server address
+	BulkSendHelper source ("ns3::TcpSocketFactory",
+													InetSocketAddress (echoServerIpAddr, port));
+	// Set the amount of data to send in bytes.  Zero is unlimited.
+	int maxBytes = 0;
+	source.SetAttribute ("MaxBytes", UintegerValue (maxBytes));
+	ApplicationContainer sourceApps = source.Install (echoClientNode);
+	sourceApps.Start (start);
+	sourceApps.Stop (end);
+	//
+	// Create a PacketSinkApplication and install it on node 1
+	//
+	PacketSinkHelper sink ("ns3::TcpSocketFactory",
+													InetSocketAddress (Ipv4Address::GetAny (), port));
+	ApplicationContainer sinkApps = sink.Install (echoServerNode);
+	sinkApps.Start (start);
+	sinkApps.Stop (end);
+}
+
 
 void
 Simulation3::InstallMapServerApplication (Ptr<Node> node, Time start, Time end)
@@ -333,7 +433,7 @@ Simulation3::CreateAnimFile (NodeContainer c, std::string animFile)
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), Seconds (10)); // Optional
 }
 
-void HandOver(Ptr<Node> node, Ptr<VirtualNetDevice> tun, Ptr<NetDevice> dev)
+void HandOver(Ptr<Node> node, Ptr<NetDevice> tun, Ptr<NetDevice> dev)
 {
   Ptr<Ipv4> ipv4MN = node->GetObject<Ipv4> ();
   ipv4MN->SetDown (1);
@@ -466,8 +566,10 @@ main (int argc, char *argv[])
    * A question: for tap, we need to care about Ethernet header or not?
    */
 //  Address lispMnEidAddr = Ipv4Address ("172.16.0.1");
-  Ptr<VirtualNetDevice> m_n0Tap = CreateObject<VirtualNetDevice> ();
-  m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
+//  Ptr<VirtualNetDevice> m_n0Tap = CreateObject<VirtualNetDevice> ();
+//  m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
+
+  Ptr<NetDevice> m_n0Tap = CreateObject<TunNetDevice> (mnxTR1Devs.Get (0));
   c.Get (0)->AddDevice (m_n0Tap);
   Ptr<Ipv4> ipv4Tun = c.Get (0)->GetObject<Ipv4> ();
   uint32_t ifIndexTap = ipv4Tun->AddInterface (m_n0Tap);
@@ -478,8 +580,7 @@ main (int argc, char *argv[])
   ipv4Tun->SetForwarding (ifIndexTap, true);
   ipv4Tun->SetUp (ifIndexTap);
 
-  Ptr<VirtualNetDevice> m_n0Tap2 = CreateObject<VirtualNetDevice> ();
-  m_n0Tap2->SetAddress (Mac48Address ("11:00:01:02:03:02"));
+  Ptr<NetDevice> m_n0Tap2 = CreateObject<TunNetDevice> (mnxTR2Devs.Get (0));
   c.Get (0)->AddDevice (m_n0Tap2);
   Ptr<Ipv4> ipv4Tun2 = c.Get (0)->GetObject<Ipv4> ();
   uint32_t ifIndexTap2 = ipv4Tun2->AddInterface (m_n0Tap2);
@@ -494,8 +595,8 @@ main (int argc, char *argv[])
    * Otherwise when transmitting packet, virtual-net-device does not know what to do,
    * because it has not a physical NIC.
    */
-  Fuck fuck (m_n0Tap, mnxTR1Devs.Get (0));
-  Fuck fuck2 (m_n0Tap2, mnxTR2Devs.Get (0));
+//  Fuck fuck (m_n0Tap, mnxTR1Devs.Get (0));
+//  Fuck fuck2 (m_n0Tap2, mnxTR2Devs.Get (0));
 
   /*
    * Assign a unique address: 10.1.1.254 for wifi net device on xTR1
@@ -554,10 +655,10 @@ main (int argc, char *argv[])
   mobility.SetPositionAllocator (positionAlloc);
   mobility.Install (c);
 
-  Time END_T = Seconds (20.0);
+  Time END_T = Seconds (40.0);
   Time ECO_END_T = Seconds (45.5);
   Time START_T = Seconds (5.0);
-  Time HandTime = Seconds(15.5);
+  Time HandTime = Seconds(25);
 
   Simulator::Schedule(HandTime, &HandOver, c.Get(0), m_n0Tap, mnxTR2Devs.Get (0));
   /*
@@ -586,6 +687,9 @@ main (int argc, char *argv[])
   sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
 			  ECO_END_T); // Discard port (RFC 863)
 
+//  sim->InstallTcpBulkSendApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
+//			  ECO_END_T); // Discard port (RFC 863)
+
   // Make xTR1&2&3 as lisp-supported routers
   Ipv4Address mrAddr = i5i6.GetAddress (1);
   Ipv4Address msAddr = i5i6.GetAddress (1);
@@ -599,20 +703,13 @@ main (int argc, char *argv[])
 
   AsciiTraceHelper ascii;
   p2p.EnableAsciiAll (
-      ascii.CreateFileStream ("lisp-mobility-between-subnet.tr"));
+      ascii.CreateFileStream ("lisp-mobility-between-subnet-p2p-double-encap.tr"));
 
 //  wifiPhy.EnablePcap("lisp-mobility-between-subnet-wifi2", m_n0Tap);
-  p2p.EnablePcapAll ("lisp-mobility-between-subnet-no-wifi");
+  p2p.EnablePcapAll ("lisp-mobility-between-subnet-p2p-double-encap");
   MobilityHelper::EnableAsciiAll (
-      ascii.CreateFileStream ("lisp-mobility-between-subnet-no-wifi.mob"));
+      ascii.CreateFileStream ("lisp-mobility-between-subnet-p2p-double-encap.mob"));
 
-  // Flow Monitor
-  FlowMonitorHelper flowmonHelper;
-  if (true)
-    {
-      flowmonHelper.InstallAll ();
-      flowmonHelper.SerializeToXmlFile("test.flowmon", false, false);
-    }
   //CreateAnimFile(c, animFile);
   AnimationInterface anim (animFile);
   anim.SetConstantPosition (c.Get (0), 0, 110);
@@ -625,13 +722,62 @@ main (int argc, char *argv[])
   anim.SetMobilityPollInterval (Seconds (0.25));
   anim.EnablePacketMetadata (true); // Optional
   anim.EnableIpv4L3ProtocolCounters (Seconds (0), END_T); // Optional
-  anim.EnableIpv4RouteTracking ("lisp-mobility-routing-table-case2",
+  anim.EnableIpv4RouteTracking ("lisp-mobility-double-encap-p2p-routing-table-case",
 				Seconds (0), END_T);
 
-  NS_LOG_INFO("Run Simulation.");
-  // Set stop time before run simulation.
-  Simulator::Stop (END_T);
-  Simulator::Run ();
+	// Gnuplot parameter
+	std::string fileNameWithNoExtension = "lisp-mobility-p2p-double-encap-throughput-vs-time";
+	std::string graphicsFileName = fileNameWithNoExtension + ".png";
+	std::string plotFileName = fileNameWithNoExtension + ".plt";
+	std::string plotTitle = "Instantaneous Throughput";
+	std::string dataTitle = "lisp-throughput";
+
+	// Instantiate the plot and set its title.
+	Gnuplot gnuplot (graphicsFileName);
+	gnuplot.SetTitle (plotTitle);
+
+	// Make the graphics file, which the plot file will be when it
+	// is used with Gnuplot, be a PNG file.
+	gnuplot.SetTerminal ("png");
+
+	// Set the labels for each axis.
+	gnuplot.SetLegend ("Time/Seconds", "Throughput/Mbps");
+
+	Gnuplot2dDataset dataset;
+	dataset.SetTitle (dataTitle);
+	dataset.SetStyle (Gnuplot2dDataset::POINTS);
+
+	//------Throughput Monitor--------------------------------------------------------------------------------------
+	FlowMonitorHelper fmHelper;
+	Ptr<FlowMonitor> monitor = fmHelper.InstallAll ();
+//	NodeContainer flowmon_nodes;
+//	flowmon_nodes.Add (mn);
+//	flowmon_nodes.Add (c.Get (4));
+  Ptr<FlowMonitor> allMon = fmHelper.InstallAll();
+	//*
+//	allMon->SetAttribute ("DelayBinWidth", DoubleValue (0.001));
+//	allMon->SetAttribute ("JitterBinWidth", DoubleValue (0.001));
+//	allMon->SetAttribute ("PacketSizeBinWidth", DoubleValue (20));
+	//*/
+//  ThroughputMonitor(&fmHelper, allMon, dataset);
+  ThroughputMonitor(&fmHelper, allMon, dataset);
+
+
+
+	NS_LOG_INFO("Now do the real Simulation.");
+	// Set stop time before run simulation.
+	Simulator::Stop (END_T);
+	Simulator::Run ();
+
+	//Gnuplot ...continued
+	gnuplot.AddDataset (dataset);
+	// Open the plot file.
+	std::ofstream plotFile (plotFileName.c_str ());
+	// Write the plot file.
+	gnuplot.GenerateOutput (plotFile);
+	// Close the plot file.
+	plotFile.close ();
+
   NS_LOG_INFO("Simulation Done.");
   Simulator::Destroy ();
 

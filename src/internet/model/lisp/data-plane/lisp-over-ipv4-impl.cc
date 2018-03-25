@@ -314,7 +314,7 @@ namespace ns3
 										"Next Header of Inner IP is still UDP, let's see the port on a copy packet");
 								UdpHeader udpHeader2;
 								p->RemoveHeader (udpHeader2);
-								if (udpHeader.GetDestinationPort ()
+								if (udpHeader2.GetDestinationPort ()
 										== LispOverIp::LISP_SIG_PORT)
 									{
 										NS_LOG_DEBUG(

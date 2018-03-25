@@ -69,7 +69,6 @@ Simulation3::Simulation3 (Address addr)
 	rlocsFile = "rlocs_single_encap.txt";
 	mapServerInitDbFile = "rloc_config_xml_single_encap.txt";
 	wifiPcapFilePrefix = "lisp-mobility-between-subnet-single-encap-wifi";
-
 }
 
 void
@@ -479,7 +478,7 @@ ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, Gnuplo
 	std::cout <<std::endl;
 	std::cout <<std::endl;
 	std::cout <<std::endl;
-	std::cout << "Call ThroughputmMonitor method at "<<Simulator::Now().GetSeconds() << "second."<<std::endl;
+	std::cout << "Call ThroughputmMonitor method at "<<Simulator::Now().GetSeconds() << " second."<<std::endl;
 	;
 	for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator stats =
 			flowStats.begin (); stats != flowStats.end (); ++stats)
@@ -697,8 +696,8 @@ main (int argc, char *argv[])
 	 * A question: for tap, we need to care about Ethernet header or not?
 	 */
 //  Address lispMnEidAddr = Ipv4Address ("172.16.0.1");
-	Ptr<VirtualNetDevice> m_n0Tap = CreateObject<VirtualNetDevice> ();
-	m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
+	Ptr<NetDevice> m_n0Tap = CreateObject<TunNetDevice> (mnDevs.Get (0));
+//	m_n0Tap->SetAddress (Mac48Address ("11:00:01:02:03:01"));
 	c.Get (0)->AddDevice (m_n0Tap);
 	Ptr<Ipv4> ipv4Tun = c.Get (0)->GetObject<Ipv4> ();
 	uint32_t ifIndexTap = ipv4Tun->AddInterface (m_n0Tap);
@@ -713,7 +712,7 @@ main (int argc, char *argv[])
 	 * Otherwise when transmitting packet, virtual-net-device does not know what to do,
 	 * because it has not a physical NIC.
 	 */
-	Fuck fuck (m_n0Tap, mnDevs.Get (0));
+//	Fuck fuck (m_n0Tap, mnDevs.Get (0));
 	/*
 	 * Assign a unique address: 10.1.1.254 for wifi net device on xTR1
 	 * code snippet fromm dhcp-example.cc
@@ -808,8 +807,8 @@ main (int argc, char *argv[])
 	//ATTENTIO!!!: if use DHCP mode, you have to used the second static routing conf...!!!
 	NS_LOG_INFO("Start DHCP client at MN...");
 	sim->InstallDhcpClientApplication (c.Get (0), 1, Seconds (0.0), END_T);
-	sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9,
-																START_T, ECO_END_T); // Discard port (RFC 863)
+//	sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9,
+//																START_T, ECO_END_T); // Discard port (RFC 863)
 	sim->InstallTcpBulkSendApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1),
 																			9, START_T, ECO_END_T); // Discard port (RFC 863)
 
@@ -853,7 +852,7 @@ main (int argc, char *argv[])
 																Seconds (0), END_T);
 
 	// Gnuplot parameter
-	std::string fileNameWithNoExtension = "lisp-mobility-throughput-vs-time";
+	std::string fileNameWithNoExtension = "lisp-mobility-single-encap-throughput-vs-time";
 	std::string graphicsFileName = fileNameWithNoExtension + ".png";
 	std::string plotFileName = fileNameWithNoExtension + ".plt";
 	std::string plotTitle = "Instantaneous Throughput";

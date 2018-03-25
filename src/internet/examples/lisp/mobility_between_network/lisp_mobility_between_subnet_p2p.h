@@ -79,7 +79,11 @@ namespace ns3
 		InstallOnOffApplication (Ptr<Node> dstNode, Ptr<Node> srcNode,
 															Ipv4Address dstIpAddr, uint16_t port, Time start,
 															Time end);
-
+		void
+		InstallTcpBulkSendApplication (Ptr<Node> echoServerNode,
+																								Ptr<Node> echoClientNode,
+																								Ipv4Address echoServerIpAddr,
+																								uint16_t port, Time start, Time end);
 		void
 		InstallMapServerApplication (Ptr<Node> node, Time start, Time end);
 
