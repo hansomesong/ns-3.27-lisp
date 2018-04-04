@@ -103,21 +103,6 @@ Simulation3::AdvancePosition (Ptr<Node> node)
 }
 
 void
-Simulation3::ChangeDefautGateway (Ptr<Node> node, Ipv4Address gateway,
-																	uint32_t interface)
-{
-	// set defaut route for MN (in WiFi networks)
-	Ipv4StaticRoutingHelper ipv4SrHelper;
-	Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
-	Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-	ipv4Stat->RemoveRoute (2);
-	ipv4Stat->SetDefaultRoute (gateway, interface);
-	Ptr<OutputStreamWrapper> stream1 = Create<OutputStreamWrapper> (
-			"Static Routing Table for MN", std::ios::out);
-	ipv4Stat->PrintRoutingTable (stream1);
-}
-
-void
 Simulation3::PrintLocations (NodeContainer nodes, std::string header)
 {
 	std::cout << header << std::endl;

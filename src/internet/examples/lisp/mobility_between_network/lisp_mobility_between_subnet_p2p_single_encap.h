@@ -60,9 +60,9 @@ namespace ns3
 		AdvancePosition (Ptr<Node> node);
 
 		void
-		ChangeDefautGateway (Ptr<Node> node, Ipv4Address gateway,
-													uint32_t interface);
-
+		TcpTxTrace(
+				const Ptr< const Packet > packet, const TcpHeader &header, const Ptr< const TcpSocketBase > socket
+				);
 		void
 		PrintLocations (NodeContainer nodes, std::string header);
 
@@ -81,6 +81,15 @@ namespace ns3
 																								Ptr<Node> echoClientNode,
 																								Ipv4Address echoServerIpAddr,
 																								uint16_t port, Time start, Time end);
+
+		void
+		InstallOnoffApplication (Ptr<Node> serverNode,
+																					Ptr<Node> clientNode,
+																					Ipv4Address echoServerIpAddr,
+																					uint16_t port,
+																					std::string protocol,
+																					Time start,
+																					Time end);
 		void
 		InstallOnOffApplication (Ptr<Node> dstNode, Ptr<Node> srcNode,
 															Ipv4Address dstIpAddr, uint16_t port, Time start,

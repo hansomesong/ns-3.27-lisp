@@ -59,10 +59,6 @@ namespace ns3
 		AdvancePosition (Ptr<Node> node);
 
 		void
-		ChangeDefautGateway (Ptr<Node> node, Ipv4Address gateway,
-													uint32_t interface);
-
-		void
 		PrintLocations (NodeContainer nodes, std::string header);
 
 		void

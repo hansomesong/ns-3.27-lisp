@@ -230,8 +230,8 @@ Simulation3::InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoCli
   // Get @ip for net device of node and use it to initialize echo client
   //UdpEchoClientHelper echoClient(i3i4.GetAddress(1), 9);
   UdpEchoClientHelper echoClient (echoServerIpAddr, port);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (10000));
-  echoClient.SetAttribute ("Interval", TimeValue (Seconds (1)));
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (20000));
+  echoClient.SetAttribute ("Interval", TimeValue (Seconds (0.05)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
   // Install echo client app at node 0
   ApplicationContainer clientApps = echoClient.Install (echoClientNode);
@@ -684,11 +684,11 @@ main (int argc, char *argv[])
   sim->InstallDhcpClientApplication (c.Get (0), 1, Seconds (0.0), END_T);
   sim->InstallDhcpClientApplication (c.Get (0), 2, HandTime, END_T);
 
-  sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
-			  ECO_END_T); // Discard port (RFC 863)
-
-//  sim->InstallTcpBulkSendApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
+//  sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
 //			  ECO_END_T); // Discard port (RFC 863)
+
+  sim->InstallTcpBulkSendApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
+			  ECO_END_T); // Discard port (RFC 863)
 
   // Make xTR1&2&3 as lisp-supported routers
   Ipv4Address mrAddr = i5i6.GetAddress (1);
@@ -726,7 +726,7 @@ main (int argc, char *argv[])
 				Seconds (0), END_T);
 
 	// Gnuplot parameter
-	std::string fileNameWithNoExtension = "lisp-mobility-p2p-double-encap-throughput-vs-time";
+	std::string fileNameWithNoExtension = "lisp-mobility-tcp-p2p-double-encap-throughput-vs-time";
 	std::string graphicsFileName = fileNameWithNoExtension + ".png";
 	std::string plotFileName = fileNameWithNoExtension + ".plt";
 	std::string plotTitle = "Instantaneous Throughput";

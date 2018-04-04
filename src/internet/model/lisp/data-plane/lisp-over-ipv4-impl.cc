@@ -441,7 +441,7 @@ namespace ns3
 		// Cache miss !
 		if (destMapEntry == 0)
 			{
-				NS_LOG_DEBUG(
+				NS_LOG_WARN(
 						"[MapForEncap] SOURCE map entry exists but DEST map entry does not !");
 				Ptr<LispOverIp> lisp = GetNode ()->GetObject<LispOverIp> ();
 				//NS_LOG_INFO("XXX:"<<*lisp->GetMapTablesV4());
@@ -458,8 +458,8 @@ namespace ns3
 						Create<EndpointId> (
 								static_cast<Address> (innerHeader.GetDestination ())));
 				mapSockMsg->SetLocators (0);
-				NS_LOG_DEBUG(
-						"[MapForEncap] EID not found " << innerHeader.GetDestination ());
+				NS_LOG_WARN(
+						"[MapForEncap] Remote EID not found " << innerHeader.GetDestination ());
 				uint8_t buf[64];
 				mapSockMsg->Serialize (buf);
 				Ptr<Packet> packet = Create<Packet> (buf, 100);

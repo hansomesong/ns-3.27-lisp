@@ -47,9 +47,33 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("LispMobilityBetweenNetwork");
 
 static uint64_t lastTotalRx = 0;
+void
+ApplicationTx(Ptr< const Packet > packet)
+{
+	NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t Send packet:\t" << *packet);
+}
+
+void
+TcpTxTrace2(const Ptr< const Packet > packet, const TcpHeader &header, const Ptr< const TcpSocketBase > socket)
+{
+	std::cout << (double)Simulator::Now().GetSeconds()<<"TCP header content:"<<header << std::endl;
+}
+
+static void
+CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
+{
+  NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t new TCP congestion window:\t" << newCwnd);
+}
+
+
+void
+static TcpRtoChange (Time oldRto, Time newRto)
+{
+  NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t change RTO from "<<oldRto.GetSeconds()<<" to new RTO:\t" << newRto);
+}
 // Copy from: https://groups.google.com/forum/#!topic/ns-3-users/-BnPRmJwcGs
 void
-ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, Gnuplot2dDataset DataSet)
+ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<PacketSink> sink, Ptr<FlowMonitor> flowMon, Gnuplot2dDataset DataSet)
 //ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon)
 
 {
@@ -62,57 +86,62 @@ ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, Gnuplo
 	std::cout <<std::endl;
 	std::cout <<std::endl;
 	std::cout << "Call ThroughputmMonitor method at "<<Simulator::Now().GetSeconds() << " second."<<std::endl;
-	;
-	for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator stats =
-			flowStats.begin (); stats != flowStats.end (); ++stats)
-		{
-			Ipv4FlowClassifier::FiveTuple fiveTuple = classing->FindFlow (
-					stats->first);
-			if (
-//			/**
-//			 * The traffic flow is defined as the set of all packets that have the same file tuples.
-//			 * We use the ACK traffic flow from remote CN to LISP-MN to analyze the instantaneous throughput.
-//			 * The reason are two-fold:
-//			 * 1) Originally, flow monitor only counts with the outer IP header. To count the inner IP header
-//			 * needs some work.
-//			 * 2) Before and after handover, the outer IP header has different source IP address
-//			 */
+//	for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator stats =
+//			flowStats.begin (); stats != flowStats.end (); ++stats)
+//		{
+//			Ipv4FlowClassifier::FiveTuple fiveTuple = classing->FindFlow (
+//					stats->first);
+//			if (
+////			/**
+////			 * The traffic flow is defined as the set of all packets that have the same file tuples.
+////			 * We use the ACK traffic flow from remote CN to LISP-MN to analyze the instantaneous throughput.
+////			 * The reason are two-fold:
+////			 * 1) Originally, flow monitor only counts with the outer IP header. To count the inner IP header
+////			 * needs some work.
+////			 * 2) Before and after handover, the outer IP header has different source IP address
+////			 */
+////
+//////				Comment the following two lines. Maybe useful in the future.
+//			(fiveTuple.sourceAddress == "10.3.3.2" && fiveTuple.destinationAddress == "172.16.0.1")
+////					or
+////			(fiveTuple.sourceAddress == "10.1.7.1"
+////					&& fiveTuple.destinationAddress == "10.1.5.2")
+////					or
+////			(fiveTuple.sourceAddress == "176.16.0.1"
+////					&& fiveTuple.destinationAddress == "10.3.3.2")
+//			)
+//				{
 //
-////				Comment the following two lines. Maybe useful in the future.
-			(fiveTuple.sourceAddress == "10.3.3.2" && fiveTuple.destinationAddress == "172.16.0.1")
-//					or
-//			(fiveTuple.sourceAddress == "10.1.7.1"
-//					&& fiveTuple.destinationAddress == "10.1.5.2")
-//					or
-//			(fiveTuple.sourceAddress == "176.16.0.1"
-//					&& fiveTuple.destinationAddress == "10.3.3.2")
-			)
-				{
-
-					std::cout << "Flow ID			: " << stats->first << " ; "
-							<< fiveTuple.sourceAddress << " -----> "
-							<< fiveTuple.destinationAddress << std::endl;
-					std::cout << "Tx Bytes		: " << stats->second.txBytes << "\n";
-					std::cout << "Rx Bytes		: " << stats->second.rxBytes << "\n";
-					std::cout << "Duration		: "
-							<< stats->second.timeLastRxPacket.GetSeconds ()
-									- stats->second.timeFirstTxPacket.GetSeconds () << std::endl;
-					std::cout << "Last Received Packet	: "
-							<< stats->second.timeLastRxPacket.GetSeconds () << " Seconds"
-							<< std::endl;
-//          localThrou=(stats->second.rxBytes * 8.0 / (stats->second.timeLastRxPacket.GetSeconds()-stats->second.timeFirstTxPacket.GetSeconds())/1024/1024);
-          localThrou=((stats->second.rxBytes - lastTotalRx) * 8.0 /0.2/1024/1024);
-          std::cout << "Throughput		: "
-							<< localThrou << " Mbps" << std::endl;
-					std::cout
-							<< "---------------------------------------------------------------------------"
-							<< std::endl;
-					lastTotalRx = stats->second.rxBytes;
-				}
-		}
+//					std::cout << "Flow ID			: " << stats->first << " ; "
+//							<< fiveTuple.sourceAddress << " -----> "
+//							<< fiveTuple.destinationAddress << std::endl;
+//					std::cout << "Tx Bytes		: " << stats->second.txBytes << "\n";
+//					std::cout << "Rx Bytes		: " << stats->second.rxBytes << "\n";
+//					std::cout << "Duration		: "
+//							<< stats->second.timeLastRxPacket.GetSeconds ()
+//									- stats->second.timeFirstTxPacket.GetSeconds () << std::endl;
+//					std::cout << "Last Received Packet	: "
+//							<< stats->second.timeLastRxPacket.GetSeconds () << " Seconds"
+//							<< std::endl;
+////          localThrou=(stats->second.rxBytes * 8.0 / (stats->second.timeLastRxPacket.GetSeconds()-stats->second.timeFirstTxPacket.GetSeconds())/1024/1024);
+//
+//					// Update: 04-03-2018, now use packet sink to get total received packet number
+//					localThrou=((sink->GetTotalRx() - lastTotalRx) * 8.0 /0.2/1000/1000);
+//          std::cout << "Throughput		: "
+//							<< localThrou << " Mbps" << std::endl;
+//					std::cout
+//							<< "---------------------------------------------------------------------------"
+//							<< std::endl;
+//					lastTotalRx = sink->GetTotalRx();
+//				}
+//		}
+	localThrou=((sink->GetTotalRx() - lastTotalRx) * 8.0 /0.2/1000/1000);
+	lastTotalRx = sink->GetTotalRx();
+  std::cout << "Throughput		: "<< localThrou << " Mbps" << std::endl;
+	std::cout << "---------------------------------------------------------------------------"<< std::endl;
 	flowMon->SerializeToXmlFile ("lisp-mobility.flowmon", true, true);
   DataSet.Add((double)Simulator::Now().GetSeconds(),(double) localThrou);
-	Simulator::Schedule (Seconds (0.2), &ThroughputMonitor, fmhelper, flowMon, DataSet);
+	Simulator::Schedule (Seconds (0.2), &ThroughputMonitor, fmhelper, sink, flowMon, DataSet);
 }
 
 
@@ -153,26 +182,10 @@ void Simulation3::AdvancePosition (Ptr<Node> node)
 	Simulator::Schedule (Seconds (1.0), &AdvancePosition, node);
 }
 
-
-
-
-
-
-void
-Simulation3::ChangeDefautGateway (Ptr<Node> node, Ipv4Address gateway, uint32_t interface)
+void Simulation3::TcpTxTrace(const Ptr< const Packet > packet, const TcpHeader &header, const Ptr< const TcpSocketBase > socket)
 {
-  // set defaut route for MN (in WiFi networks)
-  Ipv4StaticRoutingHelper ipv4SrHelper;
-  Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
-  Ptr<Ipv4StaticRouting> ipv4Stat = ipv4SrHelper.GetStaticRouting (ipv4);
-  ipv4Stat->RemoveRoute (2);
-  ipv4Stat->SetDefaultRoute (gateway, interface);
-  Ptr<OutputStreamWrapper> stream1 = Create<OutputStreamWrapper> (
-      "Static Routing Table for MN", std::ios::out);
-  ipv4Stat->PrintRoutingTable (stream1);
+	std::cout << (double)Simulator::Now().GetSeconds()<<"TCP header content:"<<header << std::endl;
 }
-
-
 void Simulation3::PrintLocations (NodeContainer nodes, std::string header)
 {
   std::cout << header << std::endl;
@@ -214,8 +227,8 @@ Simulation3::InstallEchoApplication (Ptr<Node> echoServerNode, Ptr<Node> echoCli
   // Get @ip for net device of node and use it to initialize echo client
   //UdpEchoClientHelper echoClient(i3i4.GetAddress(1), 9);
   UdpEchoClientHelper echoClient (echoServerIpAddr, port);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (10000));
-  echoClient.SetAttribute ("Interval", TimeValue (Seconds (1)));
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (20000));
+  echoClient.SetAttribute ("Interval", TimeValue (Seconds (0.05)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
   // Install echo client app at node 0
   ApplicationContainer clientApps = echoClient.Install (echoClientNode);
@@ -234,7 +247,7 @@ Simulation3::InstallTcpBulkSendApplication (Ptr<Node> echoServerNode,
 	BulkSendHelper source ("ns3::TcpSocketFactory",
 													InetSocketAddress (echoServerIpAddr, port));
 	// Set the amount of data to send in bytes.  Zero is unlimited.
-	int maxBytes = 0;
+	int maxBytes = 20;
 	source.SetAttribute ("MaxBytes", UintegerValue (maxBytes));
 	ApplicationContainer sourceApps = source.Install (echoClientNode);
 	sourceApps.Start (start);
@@ -245,6 +258,31 @@ Simulation3::InstallTcpBulkSendApplication (Ptr<Node> echoServerNode,
 	PacketSinkHelper sink ("ns3::TcpSocketFactory",
 													InetSocketAddress (Ipv4Address::GetAny (), port));
 	ApplicationContainer sinkApps = sink.Install (echoServerNode);
+	sinkApps.Start (start);
+	sinkApps.Stop (end);
+}
+
+void
+Simulation3::InstallOnoffApplication (Ptr<Node> serverNode,
+																			Ptr<Node> clientNode,
+																			Ipv4Address echoServerIpAddr,
+																			uint16_t port,
+																			std::string protocol,
+																			Time start,
+																			Time end)
+{
+	OnOffHelper source (protocol, InetSocketAddress (echoServerIpAddr, port));
+	// Set the amount of data to send in bytes.  Zero is unlimited.
+	source.SetConstantRate (DataRate ("400kb/s"));
+	source.SetAttribute("PacketSize", UintegerValue (500));
+	ApplicationContainer sourceApps = source.Install (clientNode);
+	sourceApps.Start (start);
+	sourceApps.Stop (end);
+	//
+	// Create a PacketSinkApplication and install it on node 1
+	//
+	PacketSinkHelper sink (protocol, InetSocketAddress (Ipv4Address::GetAny (), port));
+	ApplicationContainer sinkApps = sink.Install (serverNode);
 	sinkApps.Start (start);
 	sinkApps.Stop (end);
 }
@@ -493,8 +531,8 @@ main (int argc, char *argv[])
   // create channels without any IP addressing info
   NS_LOG_INFO("Create p2p channels");
   PointToPointHelper p2p;//if not pointer type, no need to use key word "new"
-  p2p.SetDeviceAttribute ("DataRate", StringValue ("10Mbps"));
-  p2p.SetChannelAttribute ("Delay", StringValue ("2ms"));
+  p2p.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
+  p2p.SetChannelAttribute ("Delay", StringValue ("1ms"));
 
   NetDeviceContainer netd1d5 = p2p.Install (d1d5);
   NetDeviceContainer netd2d5 = p2p.Install (d2d5);
@@ -660,8 +698,40 @@ main (int argc, char *argv[])
 //  sim->InstallEchoApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
 //			  ECO_END_T); // Discard port (RFC 863)
 
-  sim->InstallTcpBulkSendApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
-			  ECO_END_T); // Discard port (RFC 863)
+//  sim->InstallTcpBulkSendApplication (c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, START_T,
+//			  ECO_END_T); // Discard port (RFC 863)
+
+//  sim->InstallOnoffApplication(c.Get (4), c.Get (0), i3i4.GetAddress (1), 9, "ns3::TcpSocketFactory", START_T,
+//																			  ECO_END_T); // Discard port (RFC 863)
+
+  /*============================Start of Onoff Application setting=========================================*/
+  std::string protocol = "ns3::TcpSocketFactory";
+	OnOffHelper source (protocol, InetSocketAddress (i3i4.GetAddress (1), 9));
+	// Set the amount of data to send in bytes.  Zero is unlimited.
+	source.SetConstantRate (DataRate ("400kb/s"));
+	source.SetAttribute("PacketSize", UintegerValue (500));
+	ApplicationContainer sourceApps = source.Install (c.Get (0));
+	sourceApps.Start (START_T);
+	sourceApps.Stop (ECO_END_T);
+	//
+	// Create a PacketSinkApplication and install it on node 1
+	//
+	PacketSinkHelper sinkHelper (protocol, InetSocketAddress (Ipv4Address::GetAny (), 9));
+	ApplicationContainer sinkApps = sinkHelper.Install (c.Get (4));
+	sinkApps.Start (START_T);
+	sinkApps.Stop (ECO_END_T);
+	Ptr<PacketSink> sink;
+	int i = 0;
+	for(i=0;i<1;i++)
+		{
+			if (c.Get(4)->GetApplication(i)->GetInstanceTypeId().GetName()=="ns3::PacketSink")
+					{
+						sink = DynamicCast<PacketSink>(c.Get(4)->GetApplication(i));
+						NS_LOG_INFO("Retrieve PacketSink application from node...");
+					}
+		}
+
+  /*============================End of Onoff Application setting=========================================*/
 
   // Make xTR1&2&3 as lisp-supported routers
   Ipv4Address mrAddr = i5i6.GetAddress (1);
@@ -699,7 +769,7 @@ main (int argc, char *argv[])
 				Seconds (0), END_T);
 
 	// Gnuplot parameter
-	std::string fileNameWithNoExtension = "lisp-mobility-p2p-single-encap-throughput-vs-time";
+	std::string fileNameWithNoExtension = "lisp-mobility-tcp-p2p-single-encap-throughput-vs-time";
 	std::string graphicsFileName = fileNameWithNoExtension + ".png";
 	std::string plotFileName = fileNameWithNoExtension + ".plt";
 	std::string plotTitle = "Instantaneous Throughput";
@@ -707,7 +777,7 @@ main (int argc, char *argv[])
 
 	// Instantiate the plot and set its title.
 	Gnuplot gnuplot (graphicsFileName);
-	gnuplot.SetTitle (plotTitle);
+//	gnuplot.SetTitle (plotTitle);
 
 	// Make the graphics file, which the plot file will be when it
 	// is used with Gnuplot, be a PNG file.
@@ -733,9 +803,14 @@ main (int argc, char *argv[])
 //	allMon->SetAttribute ("PacketSizeBinWidth", DoubleValue (20));
 	//*/
 //  ThroughputMonitor(&fmHelper, allMon, dataset);
-  ThroughputMonitor(&fmHelper, allMon, dataset);
+  ThroughputMonitor(&fmHelper, sink, allMon, dataset);
 
+  // Monitor TCP trace on Node 0, i.e. LISP-MN
+  Config::Connect("/NodeList/*/$ns3::TcpL4Protocol/SocketList/*/RTO", MakeCallback(&TcpRtoChange));
+//  Config::ConnectWithoutContext("/NodeList/*/ApplicationList/*/$ns3::BulkSendApplication/Tx", MakeCallback(&ApplicationTx));
 
+  Ptr<Socket> ns3TcpSocket = Socket::CreateSocket (c.Get (4), TcpSocketFactory::GetTypeId ());
+  ns3TcpSocket->TraceConnectWithoutContext ("CongestionWindow", MakeCallback (&CwndChange));
 
 	NS_LOG_INFO("Now do the real Simulation.");
 	// Set stop time before run simulation.
